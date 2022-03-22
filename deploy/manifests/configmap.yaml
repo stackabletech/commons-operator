@@ -2,7 +2,11 @@
 # Source: commons-operator/templates/configmap.yaml
 apiVersion: v1
 data:
-  {}
+  properties.yaml: |
+    version: 0.1.0
+    spec:
+      units: []
+    properties: []
 kind: ConfigMap
 metadata:
   name: commons-operator-configmap
