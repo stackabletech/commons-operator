@@ -17,7 +17,7 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     stackable_operator::logging::initialize_logging("COMMONS_OPERATOR_LOG");
 
-    let opts = Opts::parse();
+    let _opts = Opts::parse();
 
     Ok(())
 }
