@@ -1479,6 +1479,8 @@ dependencies = [
 name = "stackable-commons-crd"
 version = "0.1.0-nightly"
 dependencies = [
+ "serde",
+ "serde_json",
  "stackable-operator",
 ]
 
@@ -1489,6 +1491,8 @@ dependencies = [
  "anyhow",
  "built",
  "clap",
+ "serde",
+ "serde_yaml",
  "stackable-commons-crd",
  "stackable-operator",
  "tokio",
