@@ -1,0 +1,20 @@
+[package]
+name = "stackable-commons-operator"
+authors = ["Stackable GmbH <info@stackable.de>"]
+description = "Stackable Operator for commons"
+license = "OSL-3.0"
+version = "0.1.0-nightly"
+edition = "2021"
+repository = "https://github.com/stackabletech/commons-operator"
+
+[dependencies]
+anyhow = "1.0"
+clap = "3.1"
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.15.0" }
+stackable-commons-crd = { path = "../crd" }
+tokio = { version = "1.17", features = ["macros", "rt-multi-thread"] }
+
+[build-dependencies]
+built = { version =  "0.5", features = ["chrono", "git2"] }
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.15.0" }
+stackable-commons-crd = { path = "../crd" }

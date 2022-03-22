@@ -1,0 +1,11 @@
+[package]
+authors = ["Stackable GmbH <info@stackable.de>"]
+description = "Contains the common structs and utilities"
+edition = "2021"
+license = "OSL-3.0"
+name = "stackable-commons-crd"
+repository = "https://github.com/stackabletech/commons-operator"
+version = "0.1.0-nightly"
+
+[dependencies]
+stackable-operator = { git = "https://github.com/stackabletech/operator-rs.git", tag = "0.15.0" }
