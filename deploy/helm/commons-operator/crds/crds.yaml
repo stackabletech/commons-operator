@@ -1,0 +1,3 @@
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep

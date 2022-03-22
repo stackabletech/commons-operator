@@ -1,0 +1,6 @@
+---
+# Source: commons-operator/crds/crds.yaml
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+
