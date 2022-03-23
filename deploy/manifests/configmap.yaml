@@ -3,6 +3,7 @@
 apiVersion: v1
 data:
   properties.yaml: |
+    ---
     version: 0.1.0
     spec:
       units: []
