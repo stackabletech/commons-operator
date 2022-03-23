@@ -3,7 +3,7 @@ apiVersion: v2
 name: commons-operator
 version: 0.1.0-nightly
 appVersion: "0.1.0-nightly"
-description: The Stackable Operator for commons
+description: The Stackable Operator for Stackable Commons
 home: https://github.com/stackabletech/commons-operator
 maintainers:
   - name: Stackable
