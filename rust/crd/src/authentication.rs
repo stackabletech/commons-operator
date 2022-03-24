@@ -36,9 +36,8 @@ pub enum AuthenticationClassProtocol {
 pub struct AuthenticationClassLdap {
     /// Hostname of the LDAP server
     pub hostname: String,
-    /// Port of the LDAP server
-    #[serde(default = "default_port")]
-    pub port: u16,
+    /// Port of the LDAP server. If TLS is used defaults to 636 otherwise to 389
+    pub port: Option<u16>,
     /// LDAP search base
     #[serde(default)]
     pub search_base: String,
@@ -66,8 +65,13 @@ pub struct AuthenticationClassLdap {
     pub tls: Option<AuthenticationClassTls>,
 }
 
-fn default_port() -> u16 {
-    389
+impl AuthenticationClassLdap {
+    pub fn default_port(&self) -> u16 {
+        match self.tls {
+            None => 389,
+            Some(_) => 636,
+        }
+    }
 }
 
 fn default_uid_field() -> String {

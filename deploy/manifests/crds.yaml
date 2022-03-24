@@ -79,10 +79,10 @@ spec:
                           description: The name of the lastname field
                           type: string
                         port:
-                          default: 389
-                          description: Port of the LDAP server
+                          description: Port of the LDAP server. If TLS is used defaults to 636 otherwise to 389
                           format: uint16
                           minimum: 0.0
+                          nullable: true
                           type: integer
                         searchBase:
                           default: ""
