@@ -1,0 +1,16 @@
+= Usage
+
+The commons-operator is used for multiple purposes:
+
+
+[%autowidth.stretch]
+|===
+|Component|Purpose
+
+|xref:authenticationclass.adoc[]
+|An CRD describing an generic authentication method like LDAP or Kerberos.
+Multiple operators use this CRD as a way to express the autentication of the product.
+
+|xref:reloader.adoc[]
+|An operator that watches `StatefulSets` and restarts them if mounted `ConfigMap` or `Secret` changes
+|===

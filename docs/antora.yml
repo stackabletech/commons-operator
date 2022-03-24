@@ -1,0 +1,5 @@
+name: commons-operator
+version: master
+title: Stackable Commons Operator
+nav:
+  - modules/ROOT/nav.adoc
