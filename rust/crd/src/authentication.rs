@@ -63,40 +63,42 @@ impl LdapAuthenticationProvider {
 #[serde(rename_all = "camelCase")]
 pub struct LdapFieldNames {
     /// The name of the username field
-    #[serde(default = "default_uid_field")]
+    #[serde(default = "LdapFieldNames::default_uid_field")]
     pub uid_field: String,
     /// The name of the group field
-    #[serde(default = "default_group_field")]
+    #[serde(default = "LdapFieldNames::default_group_field")]
     pub group_field: String,
     /// The name of the firstname field
-    #[serde(default = "default_firstname_field")]
+    #[serde(default = "LdapFieldNames::default_firstname_field")]
     pub firstname_field: String,
     /// The name of the lastname field
-    #[serde(default = "default_lastname_field")]
+    #[serde(default = "LdapFieldNames::default_lastname_field")]
     pub lastname_field: String,
     /// The name of the email field
-    #[serde(default = "default_email_field")]
+    #[serde(default = "LdapFieldNames::default_email_field")]
     pub email_field: String,
 }
 
-fn default_uid_field() -> String {
-    "uid".to_string()
-}
+impl LdapFieldNames {
+    fn default_uid_field() -> String {
+        "uid".to_string()
+    }
 
-fn default_group_field() -> String {
-    "memberof".to_string()
-}
+    fn default_group_field() -> String {
+        "memberof".to_string()
+    }
 
-fn default_firstname_field() -> String {
-    "givenName".to_string()
-}
+    fn default_firstname_field() -> String {
+        "givenName".to_string()
+    }
 
-fn default_lastname_field() -> String {
-    "sn".to_string()
-}
+    fn default_lastname_field() -> String {
+        "sn".to_string()
+    }
 
-fn default_email_field() -> String {
-    "mail".to_string()
+    fn default_email_field() -> String {
+        "mail".to_string()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
