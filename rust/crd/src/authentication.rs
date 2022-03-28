@@ -155,9 +155,9 @@ pub enum TlsVerification {
     /// Use TLS but don't verify certificates
     None {},
     /// Use TLS and ca certificate to verify the server
-    ServerVerification(TlsServerVerification),
+    Server(TlsServerVerification),
     /// Use TLS and ca certificate to verify the server and the client
-    MutualVerification(TlsMutualVerification),
+    Mutual(TlsMutualVerification),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]

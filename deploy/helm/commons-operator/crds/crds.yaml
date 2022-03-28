@@ -108,11 +108,11 @@ spec:
                                 - required:
                                     - none
                                 - required:
-                                    - serverVerification
+                                    - server
                                 - required:
-                                    - mutualVerification
+                                    - mutual
                               properties:
-                                mutualVerification:
+                                mutual:
                                   description: Use TLS and ca certificate to verify the server and the client
                                   properties:
                                     certSecretClass:
@@ -124,7 +124,7 @@ spec:
                                 none:
                                   description: "Use TLS but don't verify certificates"
                                   type: object
-                                serverVerification:
+                                server:
                                   description: Use TLS and ca certificate to verify the server
                                   properties:
                                     caCert:
