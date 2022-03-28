@@ -164,7 +164,7 @@ pub enum TlsVerification {
 #[serde(rename_all = "camelCase")]
 pub struct TlsServerVerification {
     /// Ca cert to verify the server
-    pub server_ca_cert: CaCert,
+    pub ca_cert: CaCert,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
