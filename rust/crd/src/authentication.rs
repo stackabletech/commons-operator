@@ -182,3 +182,38 @@ pub enum CaCert {
     /// So if you got provided with a ca cert but don't have access to the key you can still use this method.
     SecretClass(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_secret_class_volume_to_csi_volume() {
+        let secret_class_volume = SecretClassVolume {
+            secret_class: "myclass".to_string(),
+            scope: Some(SecretClassVolumeScope {
+                pod: true,
+                node: false,
+                services: vec!["myservice".to_string()],
+            }),
+        }
+        .to_csi_volume();
+
+        let expected_volume_attributes = BTreeMap::from([
+            (
+                "secrets.stackable.tech/class".to_string(),
+                "myclass".to_string(),
+            ),
+            (
+                "secrets.stackable.tech/scope".to_string(),
+                "pod,service=myservice".to_string(),
+            ),
+        ]);
+
+        assert_eq!(
+            expected_volume_attributes,
+            secret_class_volume.volume_attributes.unwrap()
+        );
+    }
+}
