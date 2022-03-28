@@ -157,11 +157,10 @@ pub enum AuthenticationClassCaCert {
 }
 
 impl AuthenticationClass {
-    pub fn append_volumes_and_volume_mounts(
-        &self,
-        volumes: &mut Vec<Volume>,
-        volume_mounts: &mut Vec<VolumeMount>,
-    ) {
+    pub fn get_volumes_and_volume_mounts(&self) -> (Vec<Volume>, Vec<VolumeMount>) {
+        let mut volumes = vec![];
+        let mut volume_mounts = vec![];
+
         let authentication_class_name = self.metadata.name.as_ref().unwrap();
 
         match &self.spec.provider {
@@ -192,8 +191,8 @@ impl AuthenticationClass {
                             AuthenticationClassTlsServerVerification { server_ca_cert },
                         ) => {
                             Self::append_server_ca_cert(
-                                volumes,
-                                volume_mounts,
+                                &mut volumes,
+                                &mut volume_mounts,
                                 authentication_class_name,
                                 server_ca_cert,
                             );
@@ -203,8 +202,8 @@ impl AuthenticationClass {
                         ) => {
                             // This will not only add the ca.crt but also the tls.crt and tls.key
                             Self::append_server_ca_cert(
-                                volumes,
-                                volume_mounts,
+                                &mut volumes,
+                                &mut volume_mounts,
                                 authentication_class_name,
                                 &AuthenticationClassCaCert::SecretClass(secret_class.to_string()),
                             );
@@ -213,6 +212,8 @@ impl AuthenticationClass {
                 }
             }
         }
+
+        (volumes, volume_mounts)
     }
 
     fn build_secret_operator_volume(
