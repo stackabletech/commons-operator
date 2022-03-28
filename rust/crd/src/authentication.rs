@@ -216,7 +216,7 @@ impl AuthenticationClass {
         (volumes, volume_mounts)
     }
 
-    fn build_secret_operator_volume(
+    pub fn build_secret_operator_volume(
         secret_class_name: &str,
         scope: &Option<AuthenticationClassSecretClassScope>,
     ) -> CSIVolumeSource {
@@ -238,7 +238,7 @@ impl AuthenticationClass {
         secret_operator_volume_builder.build()
     }
 
-    fn append_server_ca_cert(
+    pub fn append_server_ca_cert(
         volumes: &mut Vec<Volume>,
         volume_mounts: &mut Vec<VolumeMount>,
         authentication_class_name: &str,
