@@ -21,19 +21,19 @@ use stackable_operator::schemars::{self, JsonSchema};
 )]
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticationClassSpec {
-    /// Protocol used for authentication
-    pub protocol: AuthenticationClassProtocol,
+    /// Provider used for authentication like LDAP or Kerberos
+    pub provider: AuthenticationClassProtocol,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AuthenticationClassProtocol {
-    Ldap(AuthenticationClassLdap),
+    Ldap(LdapAuthenticationProvider),
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AuthenticationClassLdap {
+pub struct LdapAuthenticationProvider {
     /// Hostname of the LDAP server
     pub hostname: String,
     /// Port of the LDAP server. If TLS is used defaults to 636 otherwise to 389
@@ -65,7 +65,7 @@ pub struct AuthenticationClassLdap {
     pub tls: Option<AuthenticationClassTls>,
 }
 
-impl AuthenticationClassLdap {
+impl LdapAuthenticationProvider {
     pub fn default_port(&self) -> u16 {
         match self.tls {
             None => 389,
@@ -164,7 +164,7 @@ impl AuthenticationClass {
     ) {
         let authentication_class_name = self.metadata.name.as_ref().unwrap();
 
-        match &self.spec.protocol {
+        match &self.spec.provider {
             AuthenticationClassProtocol::Ldap(ldap) => {
                 if let Some(bind_credentials) = &ldap.bind_credentials {
                     let volume_name = format!("{authentication_class_name}-bind-credentials");
