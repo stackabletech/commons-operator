@@ -192,7 +192,7 @@ mod tests {
     #[test]
     fn test_secret_class_volume_to_csi_volume() {
         let secret_class_volume = SecretClassVolume {
-            secret_class: "myclass".to_string(),
+            secret_class: "myclass".to_string(), // pragma: allowlist secret
             scope: Some(SecretClassVolumeScope {
                 pod: true,
                 node: false,
