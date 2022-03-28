@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use stackable_operator::builder::{
-    SecretOperatorVolumeSourceBuilder, VolumeBuilder, VolumeMountBuilder,
-};
-use stackable_operator::k8s_openapi::api::core::v1::{CSIVolumeSource, Volume, VolumeMount};
+use stackable_operator::builder::SecretOperatorVolumeSourceBuilder;
+use stackable_operator::k8s_openapi::api::core::v1::CSIVolumeSource;
 
 use stackable_operator::kube::CustomResource;
 use stackable_operator::schemars::{self, JsonSchema};
@@ -44,6 +42,25 @@ pub struct LdapAuthenticationProvider {
     /// LDAP query to filter users
     #[serde(default)]
     pub search_filter: String,
+    /// In case you need a special account for searching the LDAP server you can specify it here
+    pub ldap_field_names: LdapFieldNames,
+    pub bind_credentials: Option<SecretClassVolume>,
+    /// Use a TLS connection. If not specified no TLS will be used
+    pub tls: Option<Tls>,
+}
+
+impl LdapAuthenticationProvider {
+    pub fn default_port(&self) -> u16 {
+        match self.tls {
+            None => 389,
+            Some(_) => 636,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LdapFieldNames {
     /// The name of the username field
     #[serde(default = "default_uid_field")]
     pub uid_field: String,
@@ -59,19 +76,6 @@ pub struct LdapAuthenticationProvider {
     /// The name of the email field
     #[serde(default = "default_email_field")]
     pub email_field: String,
-    /// In case you need a special account for searching the LDAP server you can specify it here
-    pub bind_credentials: Option<AuthenticationClassLdapBindCredentials>,
-    /// Use a TLS connection. If not specified no TLS will be used
-    pub tls: Option<AuthenticationClassTls>,
-}
-
-impl LdapAuthenticationProvider {
-    pub fn default_port(&self) -> u16 {
-        match self.tls {
-            None => 389,
-            Some(_) => 636,
-        }
-    }
 }
 
 fn default_uid_field() -> String {
@@ -96,134 +100,19 @@ fn default_email_field() -> String {
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AuthenticationClassLdapBindCredentials {
+pub struct SecretClassVolume {
     /// [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials
     pub secret_class: String,
     /// [Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)
-    pub scope: Option<AuthenticationClassSecretClassScope>,
+    pub scope: Option<SecretClassVolumeScope>,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthenticationClassSecretClassScope {
-    #[serde(default)]
-    pub pod: bool,
-    #[serde(default)]
-    pub node: bool,
-    #[serde(default)]
-    pub services: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AuthenticationClassTls {
-    /// Use TLS but don't verify certificates.
-    /// We have to use an empty struct instead of an empty Enum because of limitations of [kube-rs](https://github.com/kube-rs/kube-rs/)
-    Insecure {},
-    /// Use TLS and the ca certificates provided by the system - in this case the Docker image - to verify the server.
-    /// This can be useful when you e.g. use public AWS S3 or other public available services.
-    SystemProvided {},
-    /// Use TLS and ca certificate to verify the server
-    ServerVerification(AuthenticationClassTlsServerVerification),
-    /// Use TLS and ca certificate to verify the server and the client
-    MutualVerification(AuthenticationClassTlsMutualVerification),
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthenticationClassTlsServerVerification {
-    /// Ca cert to verify the server
-    pub server_ca_cert: AuthenticationClassCaCert,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthenticationClassTlsMutualVerification {
-    /// [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) which will provide ca.crt, tls.crt and tls.key
-    pub secret_class: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AuthenticationClassCaCert {
-    /// Name of the ConfigMap containing the ca cert. Key must be "ca.crt".
-    Configmap(String),
-    /// Name of the Secret containing the ca cert. Key must be "ca.crt".
-    Secret(String),
-    /// Path to the ca cert
-    Path(String),
-    /// Name of the SecretClass which will provide the ca cert
-    SecretClass(String),
-}
-
-impl AuthenticationClass {
-    pub fn get_volumes_and_volume_mounts(&self) -> (Vec<Volume>, Vec<VolumeMount>) {
-        let mut volumes = vec![];
-        let mut volume_mounts = vec![];
-
-        let authentication_class_name = self.metadata.name.as_ref().unwrap();
-
-        match &self.spec.provider {
-            AuthenticationClassProtocol::Ldap(ldap) => {
-                if let Some(bind_credentials) = &ldap.bind_credentials {
-                    let volume_name = format!("{authentication_class_name}-bind-credentials");
-                    let volume_mount_path = format!("/secrets/{volume_name}");
-                    volumes.push(
-                        VolumeBuilder::new(&volume_name)
-                            .csi(Self::build_secret_operator_volume(
-                                &bind_credentials.secret_class,
-                                &bind_credentials.scope,
-                            ))
-                            .build(),
-                    );
-                    volume_mounts.push(
-                        VolumeMountBuilder::new(&volume_name, volume_mount_path)
-                            .read_only(true)
-                            .build(),
-                    );
-                }
-
-                if let Some(tls) = &ldap.tls {
-                    match tls {
-                        AuthenticationClassTls::Insecure {}
-                        | AuthenticationClassTls::SystemProvided {} => {}
-                        AuthenticationClassTls::ServerVerification(
-                            AuthenticationClassTlsServerVerification { server_ca_cert },
-                        ) => {
-                            Self::append_server_ca_cert(
-                                &mut volumes,
-                                &mut volume_mounts,
-                                authentication_class_name,
-                                server_ca_cert,
-                            );
-                        }
-                        AuthenticationClassTls::MutualVerification(
-                            AuthenticationClassTlsMutualVerification { secret_class },
-                        ) => {
-                            // This will not only add the ca.crt but also the tls.crt and tls.key
-                            Self::append_server_ca_cert(
-                                &mut volumes,
-                                &mut volume_mounts,
-                                authentication_class_name,
-                                &AuthenticationClassCaCert::SecretClass(secret_class.to_string()),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        (volumes, volume_mounts)
-    }
-
-    pub fn build_secret_operator_volume(
-        secret_class_name: &str,
-        scope: &Option<AuthenticationClassSecretClassScope>,
-    ) -> CSIVolumeSource {
+impl SecretClassVolume {
+    pub fn to_csi_volume(&self) -> CSIVolumeSource {
         let mut secret_operator_volume_builder =
-            SecretOperatorVolumeSourceBuilder::new(secret_class_name);
+            SecretOperatorVolumeSourceBuilder::new(&self.secret_class);
 
-        if let Some(scope) = scope {
+        if let Some(scope) = &self.scope {
             if scope.pod {
                 secret_operator_volume_builder.with_pod_scope();
             }
@@ -237,59 +126,59 @@ impl AuthenticationClass {
 
         secret_operator_volume_builder.build()
     }
+}
 
-    pub fn append_server_ca_cert(
-        volumes: &mut Vec<Volume>,
-        volume_mounts: &mut Vec<VolumeMount>,
-        authentication_class_name: &str,
-        server_ca_cert: &AuthenticationClassCaCert,
-    ) {
-        let volume_name = format!("{authentication_class_name}-tls-certificate");
-        let volume_mount_path = format!("/certificates/{volume_name}");
-        match server_ca_cert {
-            AuthenticationClassCaCert::Path(_) => {}
-            AuthenticationClassCaCert::Secret(secret_name) => {
-                volumes.push(
-                    VolumeBuilder::new(&volume_name)
-                        .with_secret(secret_name, false)
-                        .build(),
-                );
-                volume_mounts.push(
-                    VolumeMountBuilder::new(&volume_name, volume_mount_path)
-                        .read_only(true)
-                        .build(),
-                );
-            }
-            AuthenticationClassCaCert::Configmap(configmap_name) => {
-                volumes.push(
-                    VolumeBuilder::new(&volume_name)
-                        .with_config_map(configmap_name)
-                        .build(),
-                );
-                volume_mounts.push(
-                    VolumeMountBuilder::new(&volume_name, volume_mount_path)
-                        .read_only(true)
-                        .build(),
-                );
-            }
-            AuthenticationClassCaCert::SecretClass(secret_class_name) => {
-                // We add a SecretClass Volume here to get the ca.crt, tls.crt and tls.key of the underlying SecretClass.
-                // The tls.crt and tls.key will only be used when we use the AuthenticationClassTls::MutualVerification
-                volumes.push(
-                    VolumeBuilder::new(&volume_name)
-                        .csi(
-                            SecretOperatorVolumeSourceBuilder::new(secret_class_name)
-                                .with_pod_scope()
-                                .build(),
-                        )
-                        .build(),
-                );
-                volume_mounts.push(
-                    VolumeMountBuilder::new(&volume_name, volume_mount_path)
-                        .read_only(true)
-                        .build(),
-                );
-            }
-        }
-    }
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecretClassVolumeScope {
+    #[serde(default)]
+    pub pod: bool,
+    #[serde(default)]
+    pub node: bool,
+    #[serde(default)]
+    pub services: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tls {
+    /// The verification method used to verify the certificates of the server and/or the client
+    verification: TlsVerification,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TlsVerification {
+    /// Use TLS but don't verify certificates
+    None {},
+    /// Use TLS and ca certificate to verify the server
+    ServerVerification(TlsServerVerification),
+    /// Use TLS and ca certificate to verify the server and the client
+    MutualVerification(TlsMutualVerification),
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TlsServerVerification {
+    /// Ca cert to verify the server
+    pub server_ca_cert: CaCert,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TlsMutualVerification {
+    /// [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) which will provide ca.crt, tls.crt and tls.key
+    pub cert_secret_class: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CaCert {
+    /// Use TLS and the ca certificates trusted by the common web browsers to verify the server.
+    /// This can be useful when you e.g. use public AWS S3 or other public available services.
+    WebPki {},
+    /// Name of the SecretClass which will provide the ca cert.
+    /// Note that a SecretClass does not need to have a key but can also work with just a ca cert.
+    /// So if you got provided with a ca cert but don't have access to the key you can still use this method.
+    SecretClass(String),
 }
