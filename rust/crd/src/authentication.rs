@@ -42,8 +42,9 @@ pub struct LdapAuthenticationProvider {
     /// LDAP query to filter users
     #[serde(default)]
     pub search_filter: String,
-    /// In case you need a special account for searching the LDAP server you can specify it here
+    /// The name of the LDAP object fields
     pub ldap_field_names: LdapFieldNames,
+    /// In case you need a special account for searching the LDAP server you can specify it here
     pub bind_credentials: Option<SecretClassVolume>,
     /// Use a TLS connection. If not specified no TLS will be used
     pub tls: Option<Tls>,

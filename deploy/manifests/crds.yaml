@@ -34,6 +34,7 @@ spec:
                     ldap:
                       properties:
                         bindCredentials:
+                          description: In case you need a special account for searching the LDAP server you can specify it here
                           nullable: true
                           properties:
                             scope:
@@ -62,7 +63,7 @@ spec:
                           description: Hostname of the LDAP server
                           type: string
                         ldapFieldNames:
-                          description: In case you need a special account for searching the LDAP server you can specify it here
+                          description: The name of the LDAP object fields
                           properties:
                             emailField:
                               default: mail
