@@ -20,12 +20,12 @@ use stackable_operator::schemars::{self, JsonSchema};
 #[serde(rename_all = "camelCase")]
 pub struct AuthenticationClassSpec {
     /// Provider used for authentication like LDAP or Kerberos
-    pub provider: AuthenticationClassProtocol,
+    pub provider: AuthenticationClassProvider,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AuthenticationClassProtocol {
+pub enum AuthenticationClassProvider {
     Ldap(LdapAuthenticationProvider),
 }
 
