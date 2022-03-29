@@ -23,8 +23,8 @@ spec:
           properties:
             spec:
               properties:
-                protocol:
-                  description: Protocol used for authentication
+                provider:
+                  description: Provider used for authentication like LDAP or Kerberos
                   oneOf:
                     - required:
                         - ldap
@@ -57,30 +57,38 @@ spec:
                           required:
                             - secretClass
                           type: object
-                        emailField:
-                          default: mail
-                          description: The name of the email field
-                          type: string
-                        firstnameField:
-                          default: givenName
-                          description: The name of the firstname field
-                          type: string
-                        groupField:
-                          default: memberof
-                          description: The name of the group field
-                          type: string
                         hostname:
                           description: Hostname of the LDAP server
                           type: string
-                        lastnameField:
-                          default: sn
-                          description: The name of the lastname field
-                          type: string
+                        ldapFieldNames:
+                          description: The name of the LDAP object fields
+                          properties:
+                            emailField:
+                              default: mail
+                              description: The name of the email field
+                              type: string
+                            firstnameField:
+                              default: givenName
+                              description: The name of the firstname field
+                              type: string
+                            groupField:
+                              default: memberof
+                              description: The name of the group field
+                              type: string
+                            lastnameField:
+                              default: sn
+                              description: The name of the lastname field
+                              type: string
+                            uidField:
+                              default: uid
+                              description: The name of the username field
+                              type: string
+                          type: object
                         port:
-                          default: 389
-                          description: Port of the LDAP server
+                          description: Port of the LDAP server. If TLS is used defaults to 636 otherwise to 389
                           format: uint16
                           minimum: 0.0
+                          nullable: true
                           type: integer
                         searchBase:
                           default: ""
@@ -93,73 +101,61 @@ spec:
                         tls:
                           description: Use a TLS connection. If not specified no TLS will be used
                           nullable: true
-                          oneOf:
-                            - required:
-                                - insecure
-                            - required:
-                                - systemProvided
-                            - required:
-                                - serverVerification
-                            - required:
-                                - mutualVerification
                           properties:
-                            insecure:
-                              description: "Use TLS but don't verify certificates. We have to use an empty struct instead of an empty Enum because of limitations of [kube-rs](https://github.com/kube-rs/kube-rs/)"
-                              type: object
-                            mutualVerification:
-                              description: Use TLS and ca certificate to verify the server and the client
+                            verification:
+                              description: The verification method used to verify the certificates of the server and/or the client
+                              oneOf:
+                                - required:
+                                    - none
+                                - required:
+                                    - server
+                                - required:
+                                    - mutual
                               properties:
-                                secretClass:
-                                  description: "[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) which will provide ca.crt, tls.crt and tls.key"
-                                  type: string
-                              required:
-                                - secretClass
-                              type: object
-                            serverVerification:
-                              description: Use TLS and ca certificate to verify the server
-                              properties:
-                                serverCaCert:
-                                  description: Ca cert to verify the server
-                                  oneOf:
-                                    - required:
-                                        - configmap
-                                    - required:
-                                        - secret
-                                    - required:
-                                        - path
-                                    - required:
-                                        - secretClass
+                                mutual:
+                                  description: Use TLS and ca certificate to verify the server and the client
                                   properties:
-                                    configmap:
-                                      description: "Name of the ConfigMap containing the ca cert. Key must be \"ca.crt\"."
+                                    certSecretClass:
+                                      description: "[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) which will provide ca.crt, tls.crt and tls.key"
                                       type: string
-                                    path:
-                                      description: Path to the ca cert
-                                      type: string
-                                    secret:
-                                      description: "Name of the Secret containing the ca cert. Key must be \"ca.crt\"."
-                                      type: string
-                                    secretClass:
-                                      description: Name of the SecretClass which will provide the ca cert
-                                      type: string
+                                  required:
+                                    - certSecretClass
                                   type: object
-                              required:
-                                - serverCaCert
+                                none:
+                                  description: "Use TLS but don't verify certificates"
+                                  type: object
+                                server:
+                                  description: Use TLS and ca certificate to verify the server
+                                  properties:
+                                    caCert:
+                                      description: Ca cert to verify the server
+                                      oneOf:
+                                        - required:
+                                            - webPki
+                                        - required:
+                                            - secretClass
+                                      properties:
+                                        secretClass:
+                                          description: "Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method."
+                                          type: string
+                                        webPki:
+                                          description: Use TLS and the ca certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
+                                          type: object
+                                      type: object
+                                  required:
+                                    - caCert
+                                  type: object
                               type: object
-                            systemProvided:
-                              description: Use TLS and the ca certificates provided by the system - in this case the Docker image - to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
-                              type: object
+                          required:
+                            - verification
                           type: object
-                        uidField:
-                          default: uid
-                          description: The name of the username field
-                          type: string
                       required:
                         - hostname
+                        - ldapFieldNames
                       type: object
                   type: object
               required:
-                - protocol
+                - provider
               type: object
           required:
             - spec
