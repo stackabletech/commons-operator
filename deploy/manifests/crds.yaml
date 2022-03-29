@@ -64,24 +64,25 @@ spec:
                           type: string
                         ldapFieldNames:
                           description: The name of the LDAP object fields
+                          nullable: true
                           properties:
-                            emailField:
+                            email:
                               default: mail
                               description: The name of the email field
                               type: string
-                            firstnameField:
+                            firstname:
                               default: givenName
                               description: The name of the firstname field
                               type: string
-                            groupField:
+                            group:
                               default: memberof
                               description: The name of the group field
                               type: string
-                            lastnameField:
+                            lastname:
                               default: sn
                               description: The name of the lastname field
                               type: string
-                            uidField:
+                            uid:
                               default: uid
                               description: The name of the username field
                               type: string
@@ -153,7 +154,6 @@ spec:
                           type: object
                       required:
                         - hostname
-                        - ldapFieldNames
                       type: object
                   type: object
               required:

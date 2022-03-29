@@ -43,7 +43,7 @@ pub struct LdapAuthenticationProvider {
     #[serde(default)]
     pub search_filter: String,
     /// The name of the LDAP object fields
-    pub ldap_field_names: LdapFieldNames,
+    pub ldap_field_names: Option<LdapFieldNames>,
     /// In case you need a special account for searching the LDAP server you can specify it here
     pub bind_credentials: Option<SecretClassVolume>,
     /// Use a TLS connection. If not specified no TLS will be used
@@ -63,40 +63,40 @@ impl LdapAuthenticationProvider {
 #[serde(rename_all = "camelCase")]
 pub struct LdapFieldNames {
     /// The name of the username field
-    #[serde(default = "LdapFieldNames::default_uid_field")]
-    pub uid_field: String,
+    #[serde(default = "LdapFieldNames::default_uid")]
+    pub uid: String,
     /// The name of the group field
-    #[serde(default = "LdapFieldNames::default_group_field")]
-    pub group_field: String,
+    #[serde(default = "LdapFieldNames::default_group")]
+    pub group: String,
     /// The name of the firstname field
-    #[serde(default = "LdapFieldNames::default_firstname_field")]
-    pub firstname_field: String,
+    #[serde(default = "LdapFieldNames::default_firstname")]
+    pub firstname: String,
     /// The name of the lastname field
-    #[serde(default = "LdapFieldNames::default_lastname_field")]
-    pub lastname_field: String,
+    #[serde(default = "LdapFieldNames::default_lastname")]
+    pub lastname: String,
     /// The name of the email field
-    #[serde(default = "LdapFieldNames::default_email_field")]
-    pub email_field: String,
+    #[serde(default = "LdapFieldNames::default_email")]
+    pub email: String,
 }
 
 impl LdapFieldNames {
-    fn default_uid_field() -> String {
+    fn default_uid() -> String {
         "uid".to_string()
     }
 
-    fn default_group_field() -> String {
+    fn default_group() -> String {
         "memberof".to_string()
     }
 
-    fn default_firstname_field() -> String {
+    fn default_firstname() -> String {
         "givenName".to_string()
     }
 
-    fn default_lastname_field() -> String {
+    fn default_lastname() -> String {
         "sn".to_string()
     }
 
-    fn default_email_field() -> String {
+    fn default_email() -> String {
         "mail".to_string()
     }
 }
