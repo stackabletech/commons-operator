@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use stackable_operator::builder::SecretOperatorVolumeSourceBuilder;
-use stackable_operator::k8s_openapi::api::core::v1::CSIVolumeSource;
 
+use crate::tls::Tls;
+use crate::SecretClassVolume;
 use stackable_operator::kube::CustomResource;
 use stackable_operator::schemars::{self, JsonSchema};
 
@@ -98,125 +98,5 @@ impl LdapFieldNames {
 
     fn default_email_field() -> String {
         "mail".to_string()
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SecretClassVolume {
-    /// [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials
-    pub secret_class: String,
-    /// [Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)
-    pub scope: Option<SecretClassVolumeScope>,
-}
-
-impl SecretClassVolume {
-    pub fn to_csi_volume(&self) -> CSIVolumeSource {
-        let mut secret_operator_volume_builder =
-            SecretOperatorVolumeSourceBuilder::new(&self.secret_class);
-
-        if let Some(scope) = &self.scope {
-            if scope.pod {
-                secret_operator_volume_builder.with_pod_scope();
-            }
-            if scope.node {
-                secret_operator_volume_builder.with_node_scope();
-            }
-            for service in &scope.services {
-                secret_operator_volume_builder.with_service_scope(service);
-            }
-        }
-
-        secret_operator_volume_builder.build()
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SecretClassVolumeScope {
-    #[serde(default)]
-    pub pod: bool,
-    #[serde(default)]
-    pub node: bool,
-    #[serde(default)]
-    pub services: Vec<String>,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Tls {
-    /// The verification method used to verify the certificates of the server and/or the client
-    verification: TlsVerification,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TlsVerification {
-    /// Use TLS but don't verify certificates
-    None {},
-    /// Use TLS and ca certificate to verify the server
-    Server(TlsServerVerification),
-    /// Use TLS and ca certificate to verify the server and the client
-    Mutual(TlsMutualVerification),
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TlsServerVerification {
-    /// Ca cert to verify the server
-    pub ca_cert: CaCert,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TlsMutualVerification {
-    /// [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) which will provide ca.crt, tls.crt and tls.key
-    pub cert_secret_class: String,
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum CaCert {
-    /// Use TLS and the ca certificates trusted by the common web browsers to verify the server.
-    /// This can be useful when you e.g. use public AWS S3 or other public available services.
-    WebPki {},
-    /// Name of the SecretClass which will provide the ca cert.
-    /// Note that a SecretClass does not need to have a key but can also work with just a ca cert.
-    /// So if you got provided with a ca cert but don't have access to the key you can still use this method.
-    SecretClass(String),
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::BTreeMap;
-
-    #[test]
-    fn test_secret_class_volume_to_csi_volume() {
-        let secret_class_volume = SecretClassVolume {
-            secret_class: "myclass".to_string(), // pragma: allowlist secret
-            scope: Some(SecretClassVolumeScope {
-                pod: true,
-                node: false,
-                services: vec!["myservice".to_string()],
-            }),
-        }
-        .to_csi_volume();
-
-        let expected_volume_attributes = BTreeMap::from([
-            (
-                "secrets.stackable.tech/class".to_string(),
-                "myclass".to_string(),
-            ),
-            (
-                "secrets.stackable.tech/scope".to_string(),
-                "pod,service=myservice".to_string(),
-            ),
-        ]);
-
-        assert_eq!(
-            expected_volume_attributes,
-            secret_class_volume.volume_attributes.unwrap()
-        );
     }
 }
