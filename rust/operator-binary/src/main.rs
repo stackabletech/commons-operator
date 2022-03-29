@@ -1,6 +1,8 @@
 use stackable_operator::cli::Command;
 
 use clap::Parser;
+use stackable_commons_crd::authentication::AuthenticationClass;
+use stackable_operator::kube::CustomResourceExt;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -17,7 +19,13 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     stackable_operator::logging::initialize_logging("COMMONS_OPERATOR_LOG");
 
-    let _opts = Opts::parse();
+    let opts = Opts::parse();
+    match opts.cmd {
+        Command::Crd => println!("{}", serde_yaml::to_string(&AuthenticationClass::crd())?,),
+        Command::Run(_) => {
+            todo!();
+        }
+    }
 
     Ok(())
 }
