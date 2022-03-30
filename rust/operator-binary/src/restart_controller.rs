@@ -107,10 +107,10 @@ pub async fn start(client: &Client) -> anyhow::Result<()> {
             ),
         ),
     )
-        .for_each(|res| async move {
-            report_controller_reconciled(client, "commons.superset.stackable.tech", &res)
-        })
-        .await;
+    .for_each(|res| async move {
+        report_controller_reconciled(client, "commons.superset.stackable.tech", &res)
+    })
+    .await;
 
     Ok(())
 }
@@ -119,9 +119,9 @@ fn trigger_all<S, K>(
     stream: S,
     store: Store<K>,
 ) -> impl Stream<Item = Result<ReconcileRequest<K>, S::Error>>
-    where
-        S: TryStream,
-        K: Resource<DynamicType = ()> + Clone,
+where
+    S: TryStream,
+    K: Resource<DynamicType = ()> + Clone,
 {
     trigger_with(stream, move |_| {
         store

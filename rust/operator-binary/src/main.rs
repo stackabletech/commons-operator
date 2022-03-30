@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
             let client = stackable_operator::client::create_client(Some(
                 "commons.stackable.tech".to_string(),
             ))
-                .await?;
+            .await?;
 
             restart_controller::start(&client).await?
         }
