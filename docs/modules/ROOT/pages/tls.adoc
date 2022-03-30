@@ -20,7 +20,7 @@ At the moment the following verification methods are supported
 * <<Mutual verification>>
 
 === No verification
-This example will use TLS but not check the authority of server or client:
+This example will use TLS but not perform any checks on the certificate presented by the server or present a client certificate if asked for one by the server.
 
 [source,yaml]
 ----
