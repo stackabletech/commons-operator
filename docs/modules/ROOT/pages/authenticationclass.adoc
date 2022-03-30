@@ -19,15 +19,15 @@ include::example$authenticationclass-ldap-simple.yaml[]
 <3> An optional searchBase where the users should be searched
 
 === OpenLDAP
-Here is an example that is tuned for an OpenLDAP LDAP server:
+Here is an example that is tuned for an OpenLDAP LDAP server and is configured to read bind user credentials from a secret:
 
 [source,yaml]
 ----
 include::example$authenticationclass-ldap-openldap-simple.yaml[]
 ----
 <1> The name of the xref:secret-operator::secretclass.adoc[] providing the bind credentials (username and password). Must match the name of the xref:secret-operator::secretclass.adoc[] in this example in ②
-<2> The name of the xref:secret-operator::secretclass.adoc[]
-<3> Search for a `Secret` in the namespace the product will run in
+<2> The name of the xref:secret-operator::secretclass.adoc[] we are creating that is referred to by ➀. See xref:secret-operator::secretclass.adoc[]
+<3> This determines the namespace in which the referenced `Secret` will be looked for. In this case it searches for a `Secret` in the same namespace as the product runs in. See xref:secret-operator::secretclass.adoc#backend-k8ssearch[the documentation of SecretClass]
 <4> The `Secret` containing the actual bind credentials. Please keep in mind that the `Secret` needs to be in the same namespace as the product
 <5> The name of the xref:secret-operator::secretclass.adoc[] that wants to refer to this `Secret`. Must match the name of the xref:secret-operator::secretclass.adoc[] in this example in ②
 
