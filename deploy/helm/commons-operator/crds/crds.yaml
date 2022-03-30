@@ -61,14 +61,19 @@ spec:
                           description: Hostname of the LDAP server
                           type: string
                         ldapFieldNames:
+                          default:
+                            uid: uid
+                            group: memberof
+                            givenName: givenName
+                            surname: sn
+                            email: mail
                           description: The name of the LDAP object fields
-                          nullable: true
                           properties:
                             email:
                               default: mail
                               description: The name of the email field
                               type: string
-                            firstname:
+                            givenName:
                               default: givenName
                               description: The name of the firstname field
                               type: string
@@ -76,7 +81,7 @@ spec:
                               default: memberof
                               description: The name of the group field
                               type: string
-                            lastname:
+                            surname:
                               default: sn
                               description: The name of the lastname field
                               type: string
