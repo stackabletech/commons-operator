@@ -26,7 +26,7 @@ Helm will deploy the operator in Kubernetes and apply the CRDs.
 
 == Building the operator from source
 
-After cloning the commons-operator repor you can use the following command to apply the CRDs:
+After cloning the commons-operator repo you can use the following command to apply the CRDs:
 
 [source,console]
 ----
