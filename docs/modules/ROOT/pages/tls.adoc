@@ -20,7 +20,7 @@ At the moment the following verification methods are supported
 * <<Mutual verification>>
 
 === No verification
-This example will use TLS but not check the authority of server or client:
+This example will use TLS but not perform any checks on the certificate presented by the server or present a client certificate if asked for one by the server.
 
 [source,yaml]
 ----
@@ -37,7 +37,7 @@ include::example$tls-server-verification-webpki.yaml[]
 ----
 
 This example will use TLS and verify the server using the provided ca certificate.
-For this to work you need to create a xref:secret-operator::secretclass.adoc[] that - at least - containts the ca certificate.
+For this to work you need to create a xref:secret-operator::secretclass.adoc[] that - at least - contains the ca certificate.
 Note that a SecretClass does not need to have a key but can also work with just a ca cert.
 So if you got provided with a ca cert but don't have access to the key you can still use this method.
 
