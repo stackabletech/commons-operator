@@ -1,3 +1,4 @@
+---
 apiVersion: authentication.stackable.tech/v1alpha1
 kind: AuthenticationClass
 metadata:
