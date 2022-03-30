@@ -104,7 +104,7 @@ impl LdapFieldNames {
 
 impl Default for LdapFieldNames {
     fn default() -> Self {
-        LdapFieldNames{
+        LdapFieldNames {
             uid: Self::default_uid(),
             group: Self::default_group(),
             given_name: Self::default_given_name(),
