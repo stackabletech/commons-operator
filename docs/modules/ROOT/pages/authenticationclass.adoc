@@ -31,6 +31,13 @@ include::example$authenticationclass-ldap-openldap-simple.yaml[]
 <4> The `Secret` containing the actual bind credentials. Please keep in mind that the `Secret` needs to be in the same namespace as the product
 <5> The name of the xref:secret-operator::secretclass.adoc[] that wants to refer to this `Secret`. Must match the name of the xref:secret-operator::secretclass.adoc[] in this example in ②
 
+The following diagram describes the relationship between the created CRDs
+
+[plantuml]
+----
+include::image$authenticationclass.plantuml[]
+----
+
 === All possible attributes
 The following example shows all possible attributes:
 

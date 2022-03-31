@@ -17,3 +17,10 @@ Multiple operators use this CRD as a way to express the authentication of the pr
 |xref:reloader.adoc[]
 |An operator that watches `StatefulSets` and restarts them if mounted `ConfigMap` or `Secret` changes
 |===
+
+The following diagram describes the relationship between the CRDs
+
+[plantuml]
+----
+include::image$authenticationclass.plantuml[]
+----
