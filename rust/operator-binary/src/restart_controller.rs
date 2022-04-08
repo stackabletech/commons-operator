@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use futures::{stream, Stream, StreamExt, TryStream};
 use serde_json::json;
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
 use stackable_operator::client::Client;
 use stackable_operator::k8s_openapi::api::apps::v1::StatefulSet;
 use stackable_operator::k8s_openapi::api::core::v1::{
@@ -35,12 +35,10 @@ struct Ctx {
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 enum Error {
-    #[snafu(display("tried to reconcile {} which has no namespace", obj_ref))]
-    ObjectHasNoNamespace { obj_ref: ObjectRef<DynamicObject> },
-    #[snafu(display("failed to apply update to {}", obj_ref))]
-    Apply {
+    #[snafu(display("failed to patch object {}", obj_ref))]
+    PatchFailed {
         source: kube::Error,
-        obj_ref: ObjectRef<DynamicObject>,
+        obj_ref: Box<ObjectRef<DynamicObject>>,
     },
     #[snafu(display("configmaps were not yet loaded"))]
     ConfigMapsUninitialized,
@@ -55,8 +53,7 @@ impl ReconcilerError for Error {
 
     fn secondary_object(&self) -> Option<ObjectRef<DynamicObject>> {
         match self {
-            Error::ObjectHasNoNamespace { obj_ref } => Some(obj_ref.clone().erase()),
-            Error::Apply { obj_ref, .. } => Some(obj_ref.clone().erase()),
+            Error::PatchFailed { obj_ref, .. } => Some(*obj_ref.clone()),
             Error::ConfigMapsUninitialized => None,
             Error::SecretsUninitialized => None,
         }
@@ -308,7 +305,9 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
             ),
         )
         .await
-        .unwrap();
+        .context(PatchFailedSnafu {
+            obj_ref: ObjectRef::from_obj(sts.as_ref()).erase(),
+        })?;
     Ok(Action::await_change())
 }
 
