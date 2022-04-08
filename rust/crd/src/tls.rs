@@ -6,7 +6,7 @@ use stackable_operator::schemars::{self, JsonSchema};
 #[serde(rename_all = "camelCase")]
 pub struct Tls {
     /// The verification method used to verify the certificates of the server and/or the client
-    verification: TlsVerification,
+    pub verification: TlsVerification,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
