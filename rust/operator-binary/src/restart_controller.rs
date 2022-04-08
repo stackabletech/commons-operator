@@ -43,9 +43,9 @@ enum Error {
         obj_ref: ObjectRef<DynamicObject>,
     },
     #[snafu(display("configmaps were not yet loaded"))]
-    ConfigMapsUninited,
+    ConfigMapsUninitialized,
     #[snafu(display("secrets were not yet loaded"))]
-    SecretsUninited,
+    SecretsUninitialized,
 }
 
 impl ReconcilerError for Error {
@@ -162,14 +162,14 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
         .cms_inited
         .load(std::sync::atomic::Ordering::SeqCst)
     {
-        return ConfigMapsUninitedSnafu.fail();
+        return ConfigMapsUninitializedSnafu.fail();
     }
     if !ctx
         .get_ref()
         .secrets_inited
         .load(std::sync::atomic::Ordering::SeqCst)
     {
-        return SecretsUninitedSnafu.fail();
+        return SecretsUninitializedSnafu.fail();
     }
 
     let ns = sts.metadata.namespace.as_deref().unwrap();
