@@ -10,7 +10,6 @@ rules:
       - pods
       - configmaps
       - secrets
-      - secrets
     verbs:
       - get
       - list
