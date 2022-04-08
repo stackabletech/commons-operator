@@ -52,6 +52,15 @@ impl ReconcilerError for Error {
     fn category(&self) -> &'static str {
         ErrorDiscriminants::from(self).into()
     }
+
+    fn secondary_object(&self) -> Option<ObjectRef<DynamicObject>> {
+        match self {
+            Error::ObjectHasNoNamespace { obj_ref } => Some(obj_ref.clone().erase()),
+            Error::Apply { obj_ref, .. } => Some(obj_ref.clone().erase()),
+            Error::ConfigMapsUninitialized => None,
+            Error::SecretsUninitialized => None,
+        }
+    }
 }
 
 pub async fn start(client: &Client) -> anyhow::Result<()> {
