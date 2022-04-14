@@ -1,9 +1,9 @@
 mod restart_controller;
 
-use stackable_operator::cli::Command;
+use stackable_operator::cli::{Command, ProductOperatorRun};
 
 use clap::Parser;
-use stackable_commons_crd::authentication::AuthenticationClass;
+use stackable_operator::commons::authentication::AuthenticationClass;
 use stackable_operator::kube::CustomResourceExt;
 
 mod built_info {
@@ -19,12 +19,14 @@ struct Opts {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    stackable_operator::logging::initialize_logging("COMMONS_OPERATOR_LOG");
-
     let opts = Opts::parse();
     match opts.cmd {
         Command::Crd => println!("{}", serde_yaml::to_string(&AuthenticationClass::crd())?,),
-        Command::Run(_) => {
+        Command::Run(ProductOperatorRun {
+            product_config: _,
+            watch_namespace: _,
+            tracing_target,
+        }) => {
             stackable_operator::utils::print_startup_string(
                 built_info::PKG_DESCRIPTION,
                 built_info::PKG_VERSION,
@@ -32,6 +34,11 @@ async fn main() -> anyhow::Result<()> {
                 built_info::TARGET,
                 built_info::BUILT_TIME_UTC,
                 built_info::RUSTC_VERSION,
+            );
+            stackable_operator::logging::initialize_logging(
+                "COMMONS_OPERATOR_LOG",
+                "commons",
+                tracing_target,
             );
 
             let client = stackable_operator::client::create_client(Some(
