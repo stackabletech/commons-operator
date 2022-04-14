@@ -1,3 +1,5 @@
+mod restart_controller;
+
 use stackable_operator::cli::Command;
 
 use clap::Parser;
@@ -23,7 +25,21 @@ async fn main() -> anyhow::Result<()> {
     match opts.cmd {
         Command::Crd => println!("{}", serde_yaml::to_string(&AuthenticationClass::crd())?,),
         Command::Run(_) => {
-            todo!();
+            stackable_operator::utils::print_startup_string(
+                built_info::PKG_DESCRIPTION,
+                built_info::PKG_VERSION,
+                built_info::GIT_VERSION,
+                built_info::TARGET,
+                built_info::BUILT_TIME_UTC,
+                built_info::RUSTC_VERSION,
+            );
+
+            let client = stackable_operator::client::create_client(Some(
+                "commons.stackable.tech".to_string(),
+            ))
+            .await?;
+
+            restart_controller::start(&client).await?
         }
     }
 
