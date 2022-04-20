@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
             ))
             .await?;
 
-            restart_controller::start(&client).await?
+            restart_controller::statefulset::start(&client).await?
         }
     }
 
