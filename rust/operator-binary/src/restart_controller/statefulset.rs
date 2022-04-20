@@ -60,8 +60,8 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn start(client: &Client) -> anyhow::Result<()> {
-    let kube = kube::Client::try_default().await?;
+pub async fn start(client: &Client) {
+    let kube = client.as_kube_client();
     let stses = kube::Api::<StatefulSet>::all(kube.clone());
     let cms = kube::Api::<ConfigMap>::all(kube.clone());
     let secrets = kube::Api::<Secret>::all(kube.clone());
@@ -114,11 +114,9 @@ pub async fn start(client: &Client) -> anyhow::Result<()> {
         ),
     )
     .for_each(|res| async move {
-        report_controller_reconciled(client, "commons.superset.stackable.tech", &res)
+        report_controller_reconciled(client, "statefulset.restarter.commons.stackable.tech", &res)
     })
     .await;
-
-    Ok(())
 }
 
 fn trigger_all<S, K>(
