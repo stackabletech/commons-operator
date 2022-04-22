@@ -4,4 +4,4 @@
 * Concepts
 ** xref:authenticationclass.adoc[]
 ** xref:tls.adoc[]
-** xref:reloader.adoc[]
+** xref:restarter.adoc[]

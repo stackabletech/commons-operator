@@ -14,8 +14,8 @@ Multiple operators use this CRD as a way to express the authentication of the pr
 |xref:tls.adoc[]
 |Section of a CRD describing how to connect to a TLS enabled system
 
-|xref:reloader.adoc[]
-|An operator that watches `StatefulSets` and restarts them if mounted `ConfigMap` or `Secret` changes
+|xref:restarter.adoc[]
+|An operator that watches `Pod` objects and their controllers and restarts them when required
 |===
 
 The following diagram describes the relationship between the CRDs
