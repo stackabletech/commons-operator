@@ -27,6 +27,11 @@ async fn main() -> anyhow::Result<()> {
             watch_namespace: _,
             tracing_target,
         }) => {
+            stackable_operator::logging::initialize_logging(
+                "COMMONS_OPERATOR_LOG",
+                "commons",
+                tracing_target,
+            );
             stackable_operator::utils::print_startup_string(
                 built_info::PKG_DESCRIPTION,
                 built_info::PKG_VERSION,
@@ -34,11 +39,6 @@ async fn main() -> anyhow::Result<()> {
                 built_info::TARGET,
                 built_info::BUILT_TIME_UTC,
                 built_info::RUSTC_VERSION,
-            );
-            stackable_operator::logging::initialize_logging(
-                "COMMONS_OPERATOR_LOG",
-                "commons",
-                tracing_target,
             );
 
             let client = stackable_operator::client::create_client(Some(
