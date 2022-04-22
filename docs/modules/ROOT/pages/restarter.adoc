@@ -15,7 +15,7 @@ to ensure that clusters are restarted gracefully.
 
 Annotation:: `restarter.stackable.tech/expires-at.\{tag\}`
 
-Pods can be configured to expire at a certain point in time. In this case, the pod should have the annotation
+Pods can be configured to expire at a certain point in time. In this case, the `Pod` should have the annotation
 `restarter.stackable.tech/expires-at.\{tag\}` set to a datetime formatted according to RFC 3339 (such as
 `"2022-04-21T13:24:15.225774724+00:00"`).
 `\{tag\}` should be a deterministic but unique ID identifying the reason for the expiry.
