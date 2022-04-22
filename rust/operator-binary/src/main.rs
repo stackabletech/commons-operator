@@ -1,5 +1,6 @@
 mod restart_controller;
 
+use futures::pin_mut;
 use stackable_operator::cli::{Command, ProductOperatorRun};
 
 use clap::Parser;
@@ -46,7 +47,10 @@ async fn main() -> anyhow::Result<()> {
             ))
             .await?;
 
-            restart_controller::start(&client).await?
+            let sts_restart_controller = restart_controller::statefulset::start(&client);
+            let pod_restart_controller = restart_controller::pod::start(&client);
+            pin_mut!(sts_restart_controller, pod_restart_controller);
+            futures::future::select(sts_restart_controller, pod_restart_controller).await;
         }
     }
 
