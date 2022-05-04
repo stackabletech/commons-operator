@@ -28,6 +28,8 @@ spec:
                   oneOf:
                     - required:
                         - ldap
+                    - required:
+                        - tls
                   properties:
                     ldap:
                       properties:
@@ -115,18 +117,7 @@ spec:
                                     - none
                                 - required:
                                     - server
-                                - required:
-                                    - mutual
                               properties:
-                                mutual:
-                                  description: Use TLS and ca certificate to verify the server and the client
-                                  properties:
-                                    certSecretClass:
-                                      description: "[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) which will provide ca.crt, tls.crt and tls.key"
-                                      type: string
-                                  required:
-                                    - certSecretClass
-                                  type: object
                                 none:
                                   description: "Use TLS but don't verify certificates"
                                   type: object
@@ -157,6 +148,13 @@ spec:
                           type: object
                       required:
                         - hostname
+                      type: object
+                    tls:
+                      properties:
+                        clientCertSecretClass:
+                          description: "See `<https://docs.stackable.tech/home/contributor/adr/ADR016-tls-authentication.html>`. If `client_cert_secret_class` is not set, the TLS settings may also be used for client authentication. If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) will be used to provision client certificates."
+                          nullable: true
+                          type: string
                       type: object
                   type: object
               required:
