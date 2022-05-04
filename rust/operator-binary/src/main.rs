@@ -4,7 +4,10 @@ use futures::pin_mut;
 use stackable_operator::cli::{Command, ProductOperatorRun};
 
 use clap::Parser;
-use stackable_operator::commons::authentication::AuthenticationClass;
+use stackable_operator::commons::{
+    authentication::AuthenticationClass,
+    s3::{S3Bucket, S3Connection},
+};
 use stackable_operator::kube::CustomResourceExt;
 
 mod built_info {
@@ -22,7 +25,12 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Command::Crd => println!("{}", serde_yaml::to_string(&AuthenticationClass::crd())?,),
+        Command::Crd => println!(
+            "{}{}{}",
+            serde_yaml::to_string(&AuthenticationClass::crd())?,
+            serde_yaml::to_string(&S3Connection::crd())?,
+            serde_yaml::to_string(&S3Bucket::crd())?,
+        ),
         Command::Run(ProductOperatorRun {
             product_config: _,
             watch_namespace: _,
