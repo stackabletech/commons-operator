@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.0] - 2022-05-04
+
 ### Changed
 
 - Adopt to move of commons structs to operators-rs ([#18](https://github.com/stackabletech/commons-operator/pull/18))
