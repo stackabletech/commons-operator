@@ -15,7 +15,10 @@ Multiple operators use this CRD as a way to express the authentication of the pr
 |Section of a CRD describing how to connect to a TLS enabled system
 
 |xref:restarter.adoc[]
-|An operator that watches `Pod` objects and their controllers and restarts them when required
+|A controller that watches `Pod` objects and their controllers and restarts them when required
+
+|xref:pod-enrichment.adoc[]
+|A controller that adds commonly used information to `Pod` objects
 |===
 
 The following diagram describes the relationship between the CRDs
