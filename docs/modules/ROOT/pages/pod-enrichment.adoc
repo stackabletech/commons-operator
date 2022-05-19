@@ -3,6 +3,10 @@
 The Stackable Commons Operator automatically adds commonly used information to `Pod` objects, which
 would otherwise have to be inferred by traversing the Kubernetes object graph.
 
+== Usage
+
+The pod enricher is only enabled for `Pod` objects that set the label `enrichment.stackable.tech/enabled` to `true`.
+
 == Node Address
 
 Annotation:: `enrichment.stackable.tech/node-address`

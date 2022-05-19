@@ -52,7 +52,10 @@ impl ReconcilerError for Error {
 }
 
 pub async fn start(client: &stackable_operator::client::Client) {
-    let controller = Controller::new(client.get_all_api::<Pod>(), ListParams::default());
+    let controller = Controller::new(
+        client.get_all_api::<Pod>(),
+        ListParams::default().labels("enrichment.stackable.tech/enabled=true"),
+    );
     let pods = controller.store();
     controller
         .watches(
