@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Pods are now annotated with their associated node's primary address ([#36]).
+
+[#36]: https://github.com/stackabletech/commons-operator/pull/36
+
 ## [0.1.0] - 2022-05-04
 
 ### Changed
