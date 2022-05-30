@@ -1,6 +1,7 @@
 ---
 name: commons-operator
-version: master
+version: "0.1"
 title: Stackable Commons Operator
 nav:
   - modules/ROOT/nav.adoc
+prerelease: false
