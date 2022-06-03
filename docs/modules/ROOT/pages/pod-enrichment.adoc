@@ -1,0 +1,19 @@
+= Pod Enricher
+
+The Stackable Commons Operator automatically adds commonly used information to `Pod` objects, which
+would otherwise have to be inferred by traversing the Kubernetes object graph.
+
+== Usage
+
+The pod enricher is only enabled for `Pod` objects that set the label `enrichment.stackable.tech/enabled` to `true`.
+
+== Node Address
+
+Annotation:: `enrichment.stackable.tech/node-address`
+
+The hostname or IP address of the `Node` that the `Pod` is scheduled to run on.
+Compared to `Pod.status.nodeIP`, this can also (but doesn't have to) be a hostname, and prefers
+externally routable addresses.
+
+This is intended to be used for components that need to register an accessible address (such as Kafka brokers,
+or HDFS DataNodes).
