@@ -7,4 +7,4 @@ metadata:
   labels:
     app.kubernetes.io/name: commons-operator
     app.kubernetes.io/instance: commons-operator
-    app.kubernetes.io/version: "0.2.0-nightly"
+    app.kubernetes.io/version: "0.2.0"
