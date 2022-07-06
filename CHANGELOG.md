@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Include chart name when installing with a custom release name ([#57], [#58]).
+
+[#57]: https://github.com/stackabletech/commons-operator/pull/57
+[#58]: https://github.com/stackabletech/commons-operator/pull/58
+
 ## [0.2.0] - 2022-06-30
 
 ### Added
