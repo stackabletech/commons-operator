@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file.
 [#57]: https://github.com/stackabletech/commons-operator/pull/57
 [#58]: https://github.com/stackabletech/commons-operator/pull/58
 [#65]: https://github.com/stackabletech/commons-operator/pull/65
-[#66]: https://github.com/stackabletech/commons-operator/pull/67
+[#67]: https://github.com/stackabletech/commons-operator/pull/67
 
 ## [0.2.0] - 2022-06-30
 
