@@ -11,10 +11,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Add permission to get kubernetes nodes to service-account ([#65])
+- Added permission to create `pods/eviction` to ClusterRole for operator ([#67])
 
 [#57]: https://github.com/stackabletech/commons-operator/pull/57
 [#58]: https://github.com/stackabletech/commons-operator/pull/58
 [#65]: https://github.com/stackabletech/commons-operator/pull/65
+[#67]: https://github.com/stackabletech/commons-operator/pull/67
 
 ## [0.2.0] - 2022-06-30
 
