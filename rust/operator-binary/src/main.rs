@@ -56,17 +56,19 @@ async fn main() -> anyhow::Result<()> {
             ))
             .await?;
 
-            let sts_restart_controller = restart_controller::statefulset::start(&client);
+            let (sts_restart_controller, ctx) = restart_controller::statefulset::start(&client);
             let pod_restart_controller = restart_controller::pod::start(&client);
             let pod_enrichment_controller = pod_enrichment_controller::start(&client);
+            let webhook = restart_controller::webhook::start(ctx);
             pin_mut!(
                 sts_restart_controller,
                 pod_restart_controller,
-                pod_enrichment_controller
+                pod_enrichment_controller,
+                webhook
             );
             futures::future::select(
                 futures::future::select(sts_restart_controller, pod_restart_controller),
-                pod_enrichment_controller,
+                futures::future::select(pod_enrichment_controller, webhook),
             )
             .await;
         }

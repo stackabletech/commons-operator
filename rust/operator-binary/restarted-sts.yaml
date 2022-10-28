@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: restarter-test
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  replicas: 5
+  serviceName: restarter-test
+  selector:
+    matchLabels:
+      app: restarter-test
+  template:
+    metadata:
+      labels:
+        app: restarter-test
+    spec:
+      containers:
+        - name: archlinux
+          image: archlinux
+          tty: true
+          stdin: true
+          envFrom:
+          - configMapRef:
+              name: restarter-test
+      terminationGracePeriodSeconds: 3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: restarter-test
+data:
+  foo: bar
