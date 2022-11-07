@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2022-11-07
+
 ## [0.3.0] - 2022-09-06
 
 - Updates to library dependencies and templating scripts
