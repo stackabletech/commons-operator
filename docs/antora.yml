@@ -1,7 +1,7 @@
 ---
 name: commons-operator
-version: "nightly"
+version: "0.4"
 title: Stackable Commons Operator
 nav:
   - modules/ROOT/nav.adoc
-prerelease: true
+prerelease: false
