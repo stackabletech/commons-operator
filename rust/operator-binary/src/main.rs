@@ -1,5 +1,6 @@
 mod pod_enrichment_controller;
 mod restart_controller;
+mod utils;
 
 use futures::pin_mut;
 use stackable_operator::cli::{Command, ProductOperatorRun};

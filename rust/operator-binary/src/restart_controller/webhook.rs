@@ -1,8 +1,15 @@
+use std::{io::BufReader, sync::Arc};
+
 use axum::{routing::post, Extension, Json, Router};
+use hyper::server::conn::AddrIncoming;
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use serde_json::json;
 use stackable_operator::{
     k8s_openapi::api::apps::v1::StatefulSet, kube::runtime::controller::Context,
 };
+use tokio_rustls::rustls;
+
+use crate::utils::tls_server::TlsAccept;
 
 use super::statefulset::{get_updated_restarter_annotations, Ctx};
 
@@ -10,10 +17,30 @@ pub async fn start(ctx: Context<Ctx>) {
     let app = Router::new()
         .route("/restarter/webhook", post(webhook))
         .layer(Extension(ctx));
-    axum::Server::bind(&"0.0.0.0:9765".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let certs = certs(&mut BufReader::new(std::fs::File::open("srv.crt").unwrap()))
+        .unwrap()
+        .into_iter()
+        .map(rustls::Certificate)
+        .collect::<Vec<_>>();
+    let privkey = rustls::PrivateKey(
+        pkcs8_private_keys(&mut BufReader::new(std::fs::File::open("srv.key").unwrap()))
+            .unwrap()
+            .remove(0),
+    );
+    let tls_config = Arc::new(
+        rustls::server::ServerConfig::builder()
+            .with_safe_defaults()
+            .with_no_client_auth()
+            .with_single_cert(certs, privkey)
+            .unwrap(),
+    );
+    axum::Server::builder(TlsAccept::new(
+        AddrIncoming::bind(&"0.0.0.0:9766".parse().unwrap()).unwrap(),
+        tls_config,
+    ))
+    .serve(app.into_make_service())
+    .await
+    .unwrap();
 }
 
 async fn webhook(
