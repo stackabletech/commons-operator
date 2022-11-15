@@ -25,6 +25,7 @@ use stackable_operator::logging::controller::{report_controller_reconciled, Reco
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 pub struct Ctx {
+    pub client: stackable_operator::client::Client,
     kube: kube::Client,
     cms: Store<ConfigMap>,
     cms_inited: Arc<AtomicBool>,
@@ -71,6 +72,7 @@ pub fn start(client: &Client) -> (impl Future<Output = ()> + '_, Context<Ctx>) {
     let cms_inited = Arc::new(AtomicBool::from(false));
     let secrets_inited = Arc::new(AtomicBool::from(false));
     let ctx = Context::new(Ctx {
+        client: client.clone(),
         kube,
         cms: cm_store.as_reader(),
         secrets: secret_store.as_reader(),

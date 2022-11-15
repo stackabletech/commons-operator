@@ -11,18 +11,18 @@ use tracing::warn;
 #[pin_project(project = TlsAcceptProj)]
 pub struct TlsAccept<A: Accept> {
     #[pin]
-    inner: A,
-    inner_terminated: bool,
+    transport: A,
+    transport_terminated: bool,
     rustls_acceptor: tokio_rustls::TlsAcceptor,
     #[pin]
     handshaking_conns: FuturesUnordered<tokio_rustls::Accept<A::Conn>>,
 }
 impl<A: Accept> TlsAccept<A> {
-    pub fn new(inner: A, server_config: Arc<ServerConfig>) -> Self {
+    pub fn new(transport: A, tls_config: Arc<ServerConfig>) -> Self {
         Self {
-            inner,
-            inner_terminated: false,
-            rustls_acceptor: server_config.into(),
+            transport,
+            transport_terminated: false,
+            rustls_acceptor: tls_config.into(),
             handshaking_conns: FuturesUnordered::new(),
         }
     }
@@ -39,8 +39,8 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
         let mut this = self.project();
-        if !*this.inner_terminated {
-            while let Poll::Ready(plaintext_conn) = this.inner.as_mut().poll_accept(cx) {
+        if !*this.transport_terminated {
+            while let Poll::Ready(plaintext_conn) = this.transport.as_mut().poll_accept(cx) {
                 match plaintext_conn {
                     Some(Ok(plaintext_conn)) => {
                         this.handshaking_conns
@@ -48,7 +48,7 @@ where
                     }
                     Some(Err(err)) => return Poll::Ready(Some(Err(err))),
                     None => {
-                        *this.inner_terminated = true;
+                        *this.transport_terminated = true;
                         break;
                     }
                 }
@@ -56,7 +56,7 @@ where
         }
 
         loop {
-            break if this.handshaking_conns.is_empty() && !*this.inner_terminated {
+            break if this.handshaking_conns.is_empty() && !*this.transport_terminated {
                 Poll::Pending
             } else {
                 match this.handshaking_conns.as_mut().poll_next(cx) {
