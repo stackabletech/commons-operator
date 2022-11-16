@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use futures::TryStreamExt;
+use futures::StreamExt;
 use openssl::{
     asn1::{Asn1Integer, Asn1Time},
     bn::{BigNum, MsbOption},
@@ -36,22 +36,27 @@ use stackable_operator::{
     kube::runtime::watcher::watch_object,
 };
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
+use tokio::time::Instant;
 use tokio_rustls::rustls::{
     self, server::ResolvesServerCert, sign::CertifiedKey, Certificate, PrivateKey,
 };
-use tracing::{error, info, warn};
+use tracing::{info, warn};
+
+use super::single_object_controller::single_object_applier;
 
 pub async fn run_cert_manager(
     client: &stackable_operator::client::Client,
     active_cert: Arc<RwLock<Option<Arc<CertifiedKey>>>>,
 ) {
     let secret_name = &"asdfasdf-webhook-cert";
-    watch_object(client.get_namespaced_api::<Secret>("default"), secret_name)
-        .and_then(|old_secret| async {
+    single_object_applier(
+        watch_object(client.get_namespaced_api::<Secret>("default"), secret_name)
+            .map(Result::unwrap),
+        |old_secret| async {
             let old_secret = old_secret;
 
             *active_cert.write().unwrap() = old_secret
-                .as_ref()
+                .as_deref()
                 .map(decode_keypair_from_secret)
                 .map(Arc::new);
             if old_secret.is_some() {
@@ -60,16 +65,17 @@ pub async fn run_cert_manager(
                 info!("no tls cert found");
             }
 
-            let should_renew = old_secret
+            let renew_after = old_secret
                 .as_ref()
-                .and_then(|sec| sec.data.as_ref()?.get("renew-after"))
-                .map_or(true, |renew_before| {
-                    DateTime::parse_from_rfc3339(std::str::from_utf8(&renew_before.0).unwrap())
-                        .unwrap()
-                        < Utc::now()
-                });
+                .and_then(|sec| {
+                    sec.metadata
+                        .annotations
+                        .as_ref()?
+                        .get("internal.restarter.stackable.tech/renew-after")
+                })
+                .map(|renew_after| DateTime::parse_from_rfc3339(renew_after).unwrap());
+            let should_renew = renew_after.map_or(true, |r| r < Utc::now());
 
-            // TODO: schedule renewal if not currently doing it
             if should_renew {
                 let now = OffsetDateTime::now_utc();
                 let lifetime = Duration::hours(1);
@@ -81,13 +87,13 @@ pub async fn run_cert_manager(
                     metadata: ObjectMetaBuilder::new()
                         .name(*secret_name)
                         .namespace("default")
+                        .with_annotation(
+                            "internal.restarter.stackable.tech/renew-after",
+                            renew_after.format(&Rfc3339).unwrap(),
+                        )
                         .build(),
                     data: Some(
                         [
-                            (
-                                "renew-after".to_string(),
-                                ByteString(renew_after.format(&Rfc3339).unwrap().into_bytes()),
-                            ),
                             (
                                 "tls.key".to_string(),
                                 ByteString(key.private_key_to_pem_pkcs8().unwrap()),
@@ -125,11 +131,13 @@ pub async fn run_cert_manager(
                     .unwrap();
             }
 
-            Ok(())
-        })
-        .try_collect::<()>()
-        .await
-        .unwrap();
+            renew_after.and_then(|dt| {
+                Some(Instant::now() + (dt.with_timezone(&Utc) - Utc::now()).to_std().ok()?)
+            })
+        },
+    )
+    .collect::<()>()
+    .await;
 }
 
 fn decode_keypair_from_secret(secret: &Secret) -> CertifiedKey {
