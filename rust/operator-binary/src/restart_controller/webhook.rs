@@ -43,7 +43,7 @@ async fn webhook(
     Extension(ctx): Extension<Context<Ctx>>,
 ) -> Json<serde_json::Value> {
     let sts = serde_json::from_value::<StatefulSet>(review["request"]["object"].clone()).unwrap();
-    let annotations = get_updated_restarter_annotations(&sts, ctx).unwrap();
+    let annotations = get_updated_restarter_annotations(&sts, ctx).await.unwrap();
     let annotations_path_base = "/spec/template/metadata/annotations";
     let mut annotations_len_so_far = 0;
     let mut current = &review["request"]["object"];

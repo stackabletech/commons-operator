@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,13 +23,13 @@ use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
+use crate::utils::delayed_init::{DelayedInit, InitDropped};
+
 pub struct Ctx {
     pub client: stackable_operator::client::Client,
     kube: kube::Client,
-    cms: Store<ConfigMap>,
-    cms_inited: Arc<AtomicBool>,
-    secrets: Store<Secret>,
-    secrets_inited: Arc<AtomicBool>,
+    cms: DelayedInit<Store<ConfigMap>>,
+    secrets: DelayedInit<Store<Secret>>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -41,10 +40,10 @@ pub enum Error {
         source: kube::Error,
         obj_ref: Box<ObjectRef<DynamicObject>>,
     },
-    #[snafu(display("configmaps were not yet loaded"))]
-    ConfigMapsUninitialized,
-    #[snafu(display("secrets were not yet loaded"))]
-    SecretsUninitialized,
+    #[snafu(display("configmap initializer was cancelled"))]
+    ConfigMapsUninitialized { source: InitDropped },
+    #[snafu(display("secrets initializer was cancelled"))]
+    SecretsUninitialized { source: InitDropped },
 }
 
 impl ReconcilerError for Error {
@@ -55,8 +54,8 @@ impl ReconcilerError for Error {
     fn secondary_object(&self) -> Option<ObjectRef<DynamicObject>> {
         match self {
             Error::PatchFailed { obj_ref, .. } => Some(*obj_ref.clone()),
-            Error::ConfigMapsUninitialized => None,
-            Error::SecretsUninitialized => None,
+            Error::ConfigMapsUninitialized { source: _ } => None,
+            Error::SecretsUninitialized { source: _ } => None,
         }
     }
 }
@@ -69,15 +68,15 @@ pub fn start(client: &Client) -> (impl Future<Output = ()> + '_, Context<Ctx>) {
     let sts_store = reflector::store::Writer::new(());
     let cm_store = reflector::store::Writer::new(());
     let secret_store = reflector::store::Writer::new(());
-    let cms_inited = Arc::new(AtomicBool::from(false));
-    let secrets_inited = Arc::new(AtomicBool::from(false));
+    let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
+    let mut cm_store_tx = Some(cm_store_tx);
+    let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
+    let mut secret_store_tx = Some(secret_store_tx);
     let ctx = Context::new(Ctx {
         client: client.clone(),
         kube,
-        cms: cm_store.as_reader(),
-        secrets: secret_store.as_reader(),
-        cms_inited: cms_inited.clone(),
-        secrets_inited: secrets_inited.clone(),
+        cms: cm_store_delayed,
+        secrets: secret_store_delayed,
     });
     let ctx2 = ctx.clone();
 
@@ -91,21 +90,28 @@ pub fn start(client: &Client) -> (impl Future<Output = ()> + '_, Context<Ctx>) {
                 stream::select(
                     stream::select(
                         trigger_all(
-                            try_flatten_touched(
+                            try_flatten_touched({
+                                let cm_reader = cm_store.as_reader();
                                 reflector(cm_store, watcher(cms, ListParams::default())).inspect(
-                                    |_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst),
-                                ),
-                            ),
+                                    move |_| {
+                                        if let Some(tx) = cm_store_tx.take() {
+                                            tx.init(cm_reader.clone());
+                                        }
+                                    },
+                                )
+                            }),
                             sts_store.as_reader(),
                         ),
                         trigger_all(
-                            try_flatten_touched(
+                            try_flatten_touched({
+                                let secret_reader = secret_store.as_reader();
                                 reflector(secret_store, watcher(secrets, ListParams::default()))
-                                    .inspect(|_| {
-                                        secrets_inited
-                                            .store(true, std::sync::atomic::Ordering::SeqCst)
-                                    }),
-                            ),
+                                    .inspect(move |_| {
+                                        if let Some(tx) = secret_store_tx.take() {
+                                            tx.init(secret_reader.clone());
+                                        }
+                                    })
+                            }),
                             sts_store.as_reader(),
                         ),
                     ),
@@ -176,25 +182,10 @@ fn find_pod_refs<'a, K: Resource + 'a>(
         .chain(container_env_from_refs)
 }
 
-pub fn get_updated_restarter_annotations(
+pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Context<Ctx>,
 ) -> Result<BTreeMap<String, String>, Error> {
-    if !ctx
-        .get_ref()
-        .cms_inited
-        .load(std::sync::atomic::Ordering::SeqCst)
-    {
-        return ConfigMapsUninitializedSnafu.fail();
-    }
-    if !ctx
-        .get_ref()
-        .secrets_inited
-        .load(std::sync::atomic::Ordering::SeqCst)
-    {
-        return SecretsUninitializedSnafu.fail();
-    }
-
     let ns = sts.metadata.namespace.as_deref().unwrap();
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
@@ -230,23 +221,25 @@ pub fn get_updated_restarter_annotations(
             )
         })
         .map(|cm_ref| cm_ref.within(ns));
-    annotations.extend(
-        cm_refs
-            .flat_map(|cm_ref| ctx.get_ref().cms.get(&cm_ref))
-            .flat_map(|cm| {
-                Some((
-                    format!(
-                        "configmap.restarter.stackable.tech/{}",
-                        cm.metadata.name.as_ref()?
-                    ),
-                    format!(
-                        "{}/{}",
-                        cm.metadata.uid.as_ref()?,
-                        cm.metadata.resource_version.as_ref()?
-                    ),
-                ))
-            }),
-    );
+    let cms = ctx
+        .get_ref()
+        .cms
+        .get()
+        .await
+        .context(ConfigMapsUninitializedSnafu)?;
+    annotations.extend(cm_refs.flat_map(|cm_ref| cms.get(&cm_ref)).flat_map(|cm| {
+        Some((
+            format!(
+                "configmap.restarter.stackable.tech/{}",
+                cm.metadata.name.as_ref()?
+            ),
+            format!(
+                "{}/{}",
+                cm.metadata.uid.as_ref()?,
+                cm.metadata.resource_version.as_ref()?
+            ),
+        ))
+    }));
     let secret_refs = pod_specs
         .flat_map(|pod_spec| {
             find_pod_refs(
@@ -275,9 +268,15 @@ pub fn get_updated_restarter_annotations(
             )
         })
         .map(|secret_ref| secret_ref.within(ns));
+    let secrets = ctx
+        .get_ref()
+        .secrets
+        .get()
+        .await
+        .context(SecretsUninitializedSnafu)?;
     annotations.extend(
         secret_refs
-            .flat_map(|secret_ref| ctx.get_ref().secrets.get(&secret_ref))
+            .flat_map(|secret_ref| secrets.get(&secret_ref))
             .flat_map(|cm| {
                 Some((
                     format!(
@@ -318,7 +317,7 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
                 "spec": {
                     "template": {
                         "metadata": {
-                            "annotations": get_updated_restarter_annotations(&sts, ctx)?,
+                            "annotations": get_updated_restarter_annotations(&sts, ctx).await?,
                         },
                     },
                 },
