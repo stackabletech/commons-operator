@@ -15,11 +15,10 @@ use stackable_operator::kube;
 use stackable_operator::kube::api::{ListParams, Patch, PatchParams};
 use stackable_operator::kube::core::DynamicObject;
 use stackable_operator::kube::runtime::controller::{
-    trigger_self, trigger_with, Action, Context, ReconcileRequest,
+    trigger_self, trigger_with, Action, ReconcileRequest,
 };
 use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
-use stackable_operator::kube::runtime::utils::{try_flatten_applied, try_flatten_touched};
-use stackable_operator::kube::runtime::{applier, reflector, watcher};
+use stackable_operator::kube::runtime::{applier, reflector, watcher, WatchStreamExt};
 use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -74,7 +73,7 @@ pub async fn start(client: &Client) {
     applier(
         |sts, ctx| Box::pin(reconcile(sts, ctx)),
         error_policy,
-        Context::new(Ctx {
+        Arc::new(Ctx {
             kube,
             cms: cm_store.as_reader(),
             secrets: secret_store.as_reader(),
@@ -85,30 +84,29 @@ pub async fn start(client: &Client) {
         stream::select(
             stream::select(
                 trigger_all(
-                    try_flatten_touched(
-                        reflector(cm_store, watcher(cms, ListParams::default())).inspect(|_| {
-                            cms_inited.store(true, std::sync::atomic::Ordering::SeqCst)
-                        }),
-                    ),
+                    reflector(cm_store, watcher(cms, ListParams::default()))
+                        .inspect(|_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst))
+                        .applied_objects(),
                     sts_store.as_reader(),
                 ),
                 trigger_all(
-                    try_flatten_touched(
-                        reflector(secret_store, watcher(secrets, ListParams::default())).inspect(
-                            |_| secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst),
-                        ),
-                    ),
+                    reflector(secret_store, watcher(secrets, ListParams::default()))
+                        .inspect(|_| {
+                            secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst)
+                        })
+                        .applied_objects(),
                     sts_store.as_reader(),
                 ),
             ),
             trigger_self(
-                try_flatten_applied(reflector(
+                reflector(
                     sts_store,
                     watcher(
                         stses,
                         ListParams::default().labels("restarter.stackable.tech/enabled=true"),
                     ),
-                )),
+                )
+                .applied_objects(),
                 (),
             ),
         ),
@@ -160,19 +158,11 @@ fn find_pod_refs<'a, K: Resource + 'a>(
         .chain(container_env_from_refs)
 }
 
-async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, Error> {
-    if !ctx
-        .get_ref()
-        .cms_inited
-        .load(std::sync::atomic::Ordering::SeqCst)
-    {
+async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error> {
+    if !ctx.cms_inited.load(std::sync::atomic::Ordering::SeqCst) {
         return ConfigMapsUninitializedSnafu.fail();
     }
-    if !ctx
-        .get_ref()
-        .secrets_inited
-        .load(std::sync::atomic::Ordering::SeqCst)
-    {
+    if !ctx.secrets_inited.load(std::sync::atomic::Ordering::SeqCst) {
         return SecretsUninitializedSnafu.fail();
     }
 
@@ -213,7 +203,7 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
         .map(|cm_ref| cm_ref.within(ns));
     annotations.extend(
         cm_refs
-            .flat_map(|cm_ref| ctx.get_ref().cms.get(&cm_ref))
+            .flat_map(|cm_ref| ctx.cms.get(&cm_ref))
             .flat_map(|cm| {
                 Some((
                     format!(
@@ -258,7 +248,7 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
         .map(|secret_ref| secret_ref.within(ns));
     annotations.extend(
         secret_refs
-            .flat_map(|secret_ref| ctx.get_ref().secrets.get(&secret_ref))
+            .flat_map(|secret_ref| ctx.secrets.get(&secret_ref))
             .flat_map(|cm| {
                 Some((
                     format!(
@@ -273,10 +263,10 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
                 ))
             }),
     );
-    let stses = kube::Api::<StatefulSet>::namespaced(ctx.get_ref().kube.clone(), ns);
+    let stses = kube::Api::<StatefulSet>::namespaced(ctx.kube.clone(), ns);
     stses
         .patch(
-            &sts.name(),
+            &sts.name_unchecked(),
             &PatchParams {
                 force: true,
                 field_manager: Some("restarter.stackable.tech/statefulset".to_string()),
@@ -309,6 +299,6 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Context<Ctx>) -> Result<Action, E
     Ok(Action::await_change())
 }
 
-fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> Action {
+fn error_policy(_obj: Arc<StatefulSet>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
     Action::requeue(Duration::from_secs(5))
 }

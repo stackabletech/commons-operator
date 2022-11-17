@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Bump operator-rs to `0.27.0` ([#116])
+
+[#116]: https://github.com/stackabletech/commons-operator/pull/116
+
 ## [0.4.0] - 2022-11-07
 
 ## [0.3.0] - 2022-09-06

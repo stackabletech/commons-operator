@@ -19,7 +19,7 @@ spec:
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: "Auto-generated derived type for AuthenticationClassSpec via `CustomResource`"
+          description: Auto-generated derived type for AuthenticationClassSpec via `CustomResource`
           properties:
             spec:
               properties:
@@ -38,7 +38,7 @@ spec:
                           nullable: true
                           properties:
                             scope:
-                              description: "[Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)"
+                              description: '[Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)'
                               nullable: true
                               properties:
                                 node:
@@ -54,7 +54,7 @@ spec:
                                   type: array
                               type: object
                             secretClass:
-                              description: "[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials"
+                              description: '[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials'
                               type: string
                           required:
                             - secretClass
@@ -99,11 +99,11 @@ spec:
                           nullable: true
                           type: integer
                         searchBase:
-                          default: ""
+                          default: ''
                           description: LDAP search base
                           type: string
                         searchFilter:
-                          default: ""
+                          default: ''
                           description: LDAP query to filter users
                           type: string
                         tls:
@@ -119,7 +119,7 @@ spec:
                                     - server
                               properties:
                                 none:
-                                  description: "Use TLS but don't verify certificates"
+                                  description: Use TLS but don't verify certificates
                                   type: object
                                 server:
                                   description: Use TLS and ca certificate to verify the server
@@ -133,7 +133,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: "Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method."
+                                          description: Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the ca certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -152,7 +152,7 @@ spec:
                     tls:
                       properties:
                         clientCertSecretClass:
-                          description: "See `<https://docs.stackable.tech/home/contributor/adr/ADR016-tls-authentication.html>`. If `client_cert_secret_class` is not set, the TLS settings may also be used for client authentication. If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) will be used to provision client certificates."
+                          description: See `<https://docs.stackable.tech/home/contributor/adr/ADR016-tls-authentication.html>`. If `client_cert_secret_class` is not set, the TLS settings may also be used for client authentication. If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) will be used to provision client certificates.
                           nullable: true
                           type: string
                       type: object
@@ -188,24 +188,24 @@ spec:
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: "Auto-generated derived type for S3ConnectionSpec via `CustomResource`"
+          description: Auto-generated derived type for S3ConnectionSpec via `CustomResource`
           properties:
             spec:
               description: S3 connection definition as CRD.
               properties:
                 accessStyle:
-                  description: "Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the official documentation on <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html>"
+                  description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the official documentation on <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html>
                   enum:
                     - Path
                     - VirtualHosted
                   nullable: true
                   type: string
                 credentials:
-                  description: "If the S3 uses authentication you have to specify you S3 credentials. In the most cases a SecretClass providing `accessKey` and `secretKey` is sufficient."
+                  description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a SecretClass providing `accessKey` and `secretKey` is sufficient.
                   nullable: true
                   properties:
                     scope:
-                      description: "[Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)"
+                      description: '[Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)'
                       nullable: true
                       properties:
                         node:
@@ -221,7 +221,7 @@ spec:
                           type: array
                       type: object
                     secretClass:
-                      description: "[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials"
+                      description: '[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials'
                       type: string
                   required:
                     - secretClass
@@ -249,7 +249,7 @@ spec:
                             - server
                       properties:
                         none:
-                          description: "Use TLS but don't verify certificates"
+                          description: Use TLS but don't verify certificates
                           type: object
                         server:
                           description: Use TLS and ca certificate to verify the server
@@ -263,7 +263,7 @@ spec:
                                     - secretClass
                               properties:
                                 secretClass:
-                                  description: "Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method."
+                                  description: Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method.
                                   type: string
                                 webPki:
                                   description: Use TLS and the ca certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -305,7 +305,7 @@ spec:
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: "Auto-generated derived type for S3BucketSpec via `CustomResource`"
+          description: Auto-generated derived type for S3BucketSpec via `CustomResource`
           properties:
             spec:
               description: S3 bucket specification containing only the bucket name and an inlined or referenced connection specification.
@@ -326,18 +326,18 @@ spec:
                       description: S3 connection definition as CRD.
                       properties:
                         accessStyle:
-                          description: "Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the official documentation on <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html>"
+                          description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the official documentation on <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html>
                           enum:
                             - Path
                             - VirtualHosted
                           nullable: true
                           type: string
                         credentials:
-                          description: "If the S3 uses authentication you have to specify you S3 credentials. In the most cases a SecretClass providing `accessKey` and `secretKey` is sufficient."
+                          description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a SecretClass providing `accessKey` and `secretKey` is sufficient.
                           nullable: true
                           properties:
                             scope:
-                              description: "[Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)"
+                              description: '[Scope](https://docs.stackable.tech/secret-operator/scope.html) of the [SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html)'
                               nullable: true
                               properties:
                                 node:
@@ -353,7 +353,7 @@ spec:
                                   type: array
                               type: object
                             secretClass:
-                              description: "[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials"
+                              description: '[SecretClass](https://docs.stackable.tech/secret-operator/secretclass.html) containing the LDAP bind credentials'
                               type: string
                           required:
                             - secretClass
@@ -381,7 +381,7 @@ spec:
                                     - server
                               properties:
                                 none:
-                                  description: "Use TLS but don't verify certificates"
+                                  description: Use TLS but don't verify certificates
                                   type: object
                                 server:
                                   description: Use TLS and ca certificate to verify the server
@@ -395,7 +395,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: "Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method."
+                                          description: Name of the SecretClass which will provide the ca cert. Note that a SecretClass does not need to have a key but can also work with just a ca cert. So if you got provided with a ca cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the ca certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
