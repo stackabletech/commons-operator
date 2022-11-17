@@ -1,8 +1,12 @@
-use std::fmt::Debug;
+#[cfg(test)]
+use std::sync::RwLockWriteGuard;
+use std::{fmt::Debug, task::Poll};
 
-use futures::channel;
+use futures::{channel, Future, FutureExt};
 use snafu::Snafu;
-use tokio::sync::RwLock;
+use tracing::trace;
+// use tokio::sync::RwLock;
+use std::sync::RwLock;
 
 /// The sending counterpart to a [`DelayedInit`]
 pub struct Initializer<T>(channel::oneshot::Sender<T>);
@@ -19,9 +23,14 @@ impl<T> Initializer<T> {
 ///
 /// Can be considered equivalent to a [`channel::oneshot`] channel, except for that
 /// the value produced is retained for subsequent calls to [`Self::get`].
-#[derive(Debug)]
-pub struct DelayedInit<T>(RwLock<ReceiverState<T>>);
-#[derive(Debug)]
+pub struct DelayedInit<T> {
+    state: RwLock<ReceiverState<T>>,
+    // A test-only hook to let us create artificial race conditions
+    #[cfg(test)]
+    #[allow(clippy::type_complexity)]
+    test_hook_start_of_slow_path:
+        Box<dyn Fn(&mut RwLockWriteGuard<ReceiverState<T>>) + Send + Sync>,
+}
 enum ReceiverState<T> {
     Waiting(channel::oneshot::Receiver<T>),
     Ready(Result<T, InitDropped>),
@@ -32,38 +41,65 @@ impl<T> DelayedInit<T> {
         let (tx, rx) = channel::oneshot::channel();
         (
             Initializer(tx),
-            DelayedInit(RwLock::new(ReceiverState::Waiting(rx))),
+            DelayedInit {
+                state: RwLock::new(ReceiverState::Waiting(rx)),
+                #[cfg(test)]
+                test_hook_start_of_slow_path: Box::new(|_| ()),
+            },
         )
     }
 }
-impl<T: Clone + Debug> DelayedInit<T> {
+impl<T: Clone> DelayedInit<T> {
     /// Wait for the value to be available and then return it
     ///
     /// Calling `get` again if a value has already been returned is guaranteed to return (a clone of)
     /// the same value.
-    #[tracing::instrument(name = "DelayedInit::get", level = "trace")]
     pub async fn get(&self) -> Result<T, InitDropped> {
-        let read_lock = self.0.read().await;
+        DelayedInitGet(self).await
+    }
+}
+
+// Using a manually implemented future because we don't want to hold the lock across poll calls
+// since that would mean that an unpolled writer would stall all other tasks from being able to poll it
+struct DelayedInitGet<'a, T>(&'a DelayedInit<T>);
+impl<'a, T> Future for DelayedInitGet<'a, T>
+where
+    T: Clone,
+{
+    type Output = Result<T, InitDropped>;
+
+    #[tracing::instrument(name = "DelayedInit::get", level = "trace", skip(self, cx))]
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let read_lock = self.0.state.read().unwrap();
         if let ReceiverState::Ready(v) = &*read_lock {
-            tracing::trace!("using fast path, value is already ready");
-            v.clone()
+            trace!("using fast path, value is already ready");
+            Poll::Ready(v.clone())
         } else {
-            tracing::trace!("using slow path, need to wait for the channel");
+            trace!("using slow path, need to wait for the channel");
             // IMPORTANT: Make sure that the optimistic read lock has been released already
             drop(read_lock);
-            let mut state = self.0.write().await;
-            tracing::trace!("got write lock");
+            let mut state = self.0.state.write().unwrap();
+            trace!("got write lock");
+            #[cfg(test)]
+            (self.0.test_hook_start_of_slow_path)(&mut state);
             match &mut *state {
                 ReceiverState::Waiting(rx) => {
-                    tracing::trace!("channel still active, awaiting");
-                    let value = rx.await.map_err(|_| InitDropped);
-                    tracing::trace!("got value on slow path, memoizing");
-                    *state = ReceiverState::Ready(value.clone());
-                    value
+                    trace!("channel still active, polling");
+                    if let Poll::Ready(value) = rx.poll_unpin(cx).map_err(|_| InitDropped) {
+                        trace!("got value on slow path, memoizing");
+                        *state = ReceiverState::Ready(value.clone());
+                        Poll::Ready(value)
+                    } else {
+                        trace!("channel is still pending");
+                        Poll::Pending
+                    }
                 }
                 ReceiverState::Ready(v) => {
-                    tracing::trace!("slow path but value was already initialized, another writer already initialized");
-                    v.clone()
+                    trace!("slow path but value was already initialized, another writer already initialized");
+                    Poll::Ready(v.clone())
                 }
             }
         }
@@ -76,11 +112,16 @@ pub struct InitDropped;
 
 #[cfg(test)]
 mod tests {
-    use std::task::Poll;
+    use std::{
+        sync::{Arc, Mutex},
+        task::Poll,
+    };
 
     use futures::{pin_mut, poll};
     use tracing::Level;
     use tracing_subscriber::util::SubscriberInitExt;
+
+    use crate::utils::delayed_init::ReceiverState;
 
     use super::DelayedInit;
 
@@ -148,5 +189,23 @@ mod tests {
         assert_eq!(poll!(get3), Poll::Ready(Ok(1)));
         assert_eq!(poll!(get2), Poll::Ready(Ok(1)));
         assert_eq!(poll!(get1), Poll::Ready(Ok(1)));
+    }
+
+    #[tokio::test]
+    async fn must_work_despite_writer_race() {
+        let _tracing = setup_tracing();
+        let (_tx, mut rx) = DelayedInit::<u8>::new();
+        let slow_path_calls = Arc::new(Mutex::new(0));
+        let slow_path_calls2 = slow_path_calls.clone();
+        // This emulates two racing get() calls, where a fake get() memoizes a value while the true get()
+        // is waiting to upgrade its read lock to a write lock.
+        rx.test_hook_start_of_slow_path = Box::new(move |state| {
+            *slow_path_calls2.lock().unwrap() += 1;
+            **state = ReceiverState::Ready(Ok(1));
+        });
+        assert_eq!(rx.get().await, Ok(1));
+        assert_eq!(rx.get().await, Ok(1));
+        assert_eq!(rx.get().await, Ok(1));
+        assert_eq!(*slow_path_calls.lock().unwrap(), 1);
     }
 }
