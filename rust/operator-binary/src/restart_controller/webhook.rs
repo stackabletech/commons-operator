@@ -17,25 +17,23 @@ use super::statefulset::{get_updated_restarter_annotations, Ctx};
 
 pub async fn start(ctx: Context<Ctx>) {
     let active_cert = Arc::default();
-    tokio::spawn({
-        let client = ctx.get_ref().client.clone();
-        let active_cert = Arc::clone(&active_cert);
-        async move { run_cert_manager(&client, active_cert).await }
-    });
     let app = Router::new()
         .route("/restarter/webhook", post(webhook))
-        .layer(Extension(ctx));
+        .layer(Extension(ctx.clone()));
     let tls_config = Arc::new(
         rustls::server::ServerConfig::builder()
             .with_safe_defaults()
             .with_no_client_auth()
-            .with_cert_resolver(Arc::new(ResolvesLatestCert { active_cert })),
+            .with_cert_resolver(Arc::new(ResolvesLatestCert {
+                active_cert: Arc::clone(&active_cert),
+            })),
     );
     axum::Server::builder(TlsAccept::new(
         AddrIncoming::bind(&"0.0.0.0:9766".parse().unwrap()).unwrap(),
         tls_config,
     ))
     .serve(app.into_make_service())
+    .with_graceful_shutdown(run_cert_manager(&ctx.get_ref().client, active_cert))
     .await
     .unwrap();
 }
