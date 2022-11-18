@@ -45,7 +45,7 @@ pub fn single_object_applier<
 /// Will only emit one value, even if `reemit_trigger` has emitted multiple values at once.
 /// Will terminate once `source` terminates.
 #[pin_project]
-struct LastObjectEmitter<S1: Stream, S2> {
+pub struct LastObjectEmitter<S1: Stream, S2> {
     #[pin]
     source: stream::Fuse<S1>,
     #[pin]
@@ -54,7 +54,7 @@ struct LastObjectEmitter<S1: Stream, S2> {
 }
 
 impl<S1: Stream, S2: Stream> LastObjectEmitter<S1, S2> {
-    fn new(source: S1, reemit_trigger: S2) -> Self {
+    pub fn new(source: S1, reemit_trigger: S2) -> Self {
         Self {
             source: source.fuse(),
             reemit_trigger: reemit_trigger.fuse(),

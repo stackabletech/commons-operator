@@ -8,12 +8,10 @@ use stackable_operator::{
 };
 use tokio_rustls::rustls;
 
-use crate::utils::{
-    tls_cert_manager::{run_cert_manager, ResolvesLatestCert},
-    tls_server::TlsAccept,
-};
+use crate::utils::tls_server::TlsAccept;
 
 use super::controller::{get_updated_restarter_annotations, Ctx};
+use super::webhook_cert_manager::{self, ResolvesLatestCert};
 
 pub async fn start(ctx: Context<Ctx>) {
     let active_cert = Arc::default();
@@ -33,7 +31,10 @@ pub async fn start(ctx: Context<Ctx>) {
         tls_config,
     ))
     .serve(app.into_make_service())
-    .with_graceful_shutdown(run_cert_manager(&ctx.get_ref().client, active_cert))
+    .with_graceful_shutdown(webhook_cert_manager::start(
+        &ctx.get_ref().client,
+        active_cert,
+    ))
     .await
     .unwrap();
 }
