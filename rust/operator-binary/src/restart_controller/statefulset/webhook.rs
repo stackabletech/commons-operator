@@ -13,7 +13,7 @@ use crate::utils::{
     tls_server::TlsAccept,
 };
 
-use super::statefulset::{get_updated_restarter_annotations, Ctx};
+use super::controller::{get_updated_restarter_annotations, Ctx};
 
 pub async fn start(ctx: Context<Ctx>) {
     let active_cert = Arc::default();
