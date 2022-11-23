@@ -86,7 +86,7 @@ pub async fn start(client: &Client) {
                 trigger_all(
                     reflector(cm_store, watcher(cms, ListParams::default()))
                         .inspect(|_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst))
-                        .applied_objects(),
+                        .touched_objects(),
                     sts_store.as_reader(),
                 ),
                 trigger_all(
@@ -94,7 +94,7 @@ pub async fn start(client: &Client) {
                         .inspect(|_| {
                             secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst)
                         })
-                        .applied_objects(),
+                        .touched_objects(),
                     sts_store.as_reader(),
                 ),
             ),
