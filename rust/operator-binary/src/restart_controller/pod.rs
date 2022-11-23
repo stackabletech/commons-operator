@@ -12,11 +12,7 @@ use stackable_operator::{
         self,
         api::{EvictParams, ListParams},
         core::DynamicObject,
-        runtime::{
-            controller::{Action, Context},
-            reflector::ObjectRef,
-            Controller,
-        },
+        runtime::{controller::Action, reflector::ObjectRef, Controller},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };
@@ -31,6 +27,8 @@ struct Ctx {
 enum Error {
     #[snafu(display("Pod has no name"))]
     PodHasNoName,
+    #[snafu(display("Pod has no namespace"))]
+    PodHasNoNamespace,
     #[snafu(display(
         "failed to parse expiry timestamp annotation ({annotation:?}: {value:?}) as RFC 3999"
     ))]
@@ -51,6 +49,7 @@ impl ReconcilerError for Error {
     fn secondary_object(&self) -> Option<ObjectRef<DynamicObject>> {
         match self {
             Error::PodHasNoName => None,
+            Error::PodHasNoNamespace => None,
             Error::UnparseableExpiryTimestamp {
                 source: _,
                 annotation: _,
@@ -67,7 +66,7 @@ pub async fn start(client: &Client) {
         .run(
             reconcile,
             error_policy,
-            Context::new(Ctx {
+            Arc::new(Ctx {
                 client: client.clone(),
             }),
         )
@@ -77,7 +76,7 @@ pub async fn start(client: &Client) {
         .await;
 }
 
-async fn reconcile(pod: Arc<Pod>, ctx: Context<Ctx>) -> Result<Action, Error> {
+async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
     if pod.metadata.deletion_timestamp.is_some() {
         // Object is already being deleted, no point trying again
         return Ok(Action::await_change());
@@ -105,10 +104,12 @@ async fn reconcile(pod: Arc<Pod>, ctx: Context<Ctx>) -> Result<Action, Error> {
     let time_until_pod_expires = pod_expires_at.map(|expires_at| (expires_at - now).to_std());
     match time_until_pod_expires {
         Some(Err(_has_already_expired)) => {
-            let pods = ctx
-                .get_ref()
-                .client
-                .get_api::<Pod>(pod.metadata.namespace.as_deref());
+            let pods = ctx.client.get_api::<Pod>(
+                pod.metadata
+                    .namespace
+                    .as_deref()
+                    .context(PodHasNoNamespaceSnafu)?,
+            );
             pods.evict(
                 pod.metadata.name.as_deref().context(PodHasNoNameSnafu)?,
                 &EvictParams::default(),
@@ -122,6 +123,6 @@ async fn reconcile(pod: Arc<Pod>, ctx: Context<Ctx>) -> Result<Action, Error> {
     }
 }
 
-fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> Action {
+fn error_policy(_obj: Arc<Pod>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
     Action::requeue(Duration::from_secs(5))
 }

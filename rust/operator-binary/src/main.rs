@@ -9,7 +9,7 @@ use stackable_operator::commons::{
     authentication::AuthenticationClass,
     s3::{S3Bucket, S3Connection},
 };
-use stackable_operator::kube::CustomResourceExt;
+use stackable_operator::CustomResourceExt;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -26,12 +26,11 @@ struct Opts {
 async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
-        Command::Crd => println!(
-            "{}{}{}",
-            serde_yaml::to_string(&AuthenticationClass::crd())?,
-            serde_yaml::to_string(&S3Connection::crd())?,
-            serde_yaml::to_string(&S3Bucket::crd())?,
-        ),
+        Command::Crd => {
+            AuthenticationClass::print_yaml_schema()?;
+            S3Connection::print_yaml_schema()?;
+            S3Bucket::print_yaml_schema()?;
+        }
         Command::Run(ProductOperatorRun {
             product_config: _,
             watch_namespace: _,

@@ -7,11 +7,7 @@ use stackable_operator::{
     kube::{
         api::ListParams,
         core::ObjectMeta,
-        runtime::{
-            controller::{self, Context},
-            reflector::ObjectRef,
-            Controller,
-        },
+        runtime::{controller, reflector::ObjectRef, Controller},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };
@@ -74,7 +70,7 @@ pub async fn start(client: &stackable_operator::client::Client) {
         .run(
             reconcile,
             error_policy,
-            Context::new(Ctx {
+            Arc::new(Ctx {
                 client: client.clone(),
             }),
         )
@@ -90,12 +86,11 @@ pub enum NodeAddressType {
     InternalIP,
 }
 
-async fn reconcile(pod: Arc<Pod>, ctx: Context<Ctx>) -> Result<controller::Action, Error> {
+async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<controller::Action, Error> {
     let node_name = pod.spec.as_ref().and_then(|s| s.node_name.as_deref());
     let node = if let Some(node_name) = node_name {
-        ctx.get_ref()
-            .client
-            .get::<Node>(node_name, None)
+        ctx.client
+            .get::<Node>(node_name, &())
             .await
             .with_context(|_| GetNodeSnafu {
                 node: ObjectRef::new(node_name),
@@ -131,14 +126,13 @@ async fn reconcile(pod: Arc<Pod>, ctx: Context<Ctx>) -> Result<controller::Actio
         },
         ..Pod::default()
     };
-    ctx.get_ref()
-        .client
+    ctx.client
         .apply_patch(FIELD_MANAGER_SCOPE, &patch, &patch)
         .await
         .context(UpdatePodSnafu)?;
     Ok(controller::Action::await_change())
 }
 
-fn error_policy(_error: &Error, _ctx: Context<Ctx>) -> controller::Action {
+fn error_policy(_obj: Arc<Pod>, _error: &Error, _ctx: Arc<Ctx>) -> controller::Action {
     controller::Action::requeue(Duration::from_secs(5))
 }
