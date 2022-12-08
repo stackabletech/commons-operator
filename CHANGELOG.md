@@ -4,11 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added `AuthenticationClass` provider static (bump operator-rs to `0.28.0`)  ([#123])
+
 ### Changed
 
 - Bump operator-rs to `0.27.1` ([#116])
 
 [#116]: https://github.com/stackabletech/commons-operator/pull/116
+[#123]: https://github.com/stackabletech/commons-operator/pull/123
 
 ## [0.4.0] - 2022-11-07
 
@@ -20,7 +25,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Include chart name when installing with a custom release name ([#57], [#58]).
+- Include chart name when installing with a custom release name ([#57], [#58])
 
 ### Fixed
 
@@ -36,7 +41,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Pods are now annotated with their associated node's primary address ([#36]).
+- Pods are now annotated with their associated node's primary address ([#36])
 
 ### Changed
 

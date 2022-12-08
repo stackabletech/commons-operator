@@ -31,6 +31,8 @@ spec:
                         - ldap
                     - required:
                         - tls
+                    - required:
+                        - static
                   properties:
                     ldap:
                       properties:
@@ -149,6 +151,20 @@ spec:
                           type: object
                       required:
                         - hostname
+                      type: object
+                    static:
+                      properties:
+                        userCredentialsSecret:
+                          description: Secret providing the usernames and password. The secret must contain an entry for every user, with the key being the username and the value the password in plain text. It must be located in the same namespace as the product using it.
+                          properties:
+                            name:
+                              description: Name of the secret
+                              type: string
+                          required:
+                            - name
+                          type: object
+                      required:
+                        - userCredentialsSecret
                       type: object
                     tls:
                       properties:

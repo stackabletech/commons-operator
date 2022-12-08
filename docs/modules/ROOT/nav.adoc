@@ -2,6 +2,5 @@
 * xref:configuration.adoc[]
 * xref:usage.adoc[]
 * Concepts
-** xref:authenticationclass.adoc[]
-** xref:tls.adoc[]
 ** xref:restarter.adoc[]
+** xref:pod-enrichment.adoc[]
