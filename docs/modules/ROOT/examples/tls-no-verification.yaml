@@ -1,4 +1,0 @@
----
-tls:
-  verification:
-    none: {}

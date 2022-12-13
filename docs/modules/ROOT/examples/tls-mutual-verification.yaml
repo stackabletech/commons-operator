@@ -1,5 +1,0 @@
----
-tls:
-  verification:
-    mutual:
-      certSecretClass: openldap-tls
