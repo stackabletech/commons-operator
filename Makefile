@@ -25,7 +25,7 @@ render-readme:
 
 ## Docker related targets
 docker-build:
-	docker build --force-rm --build-arg VERSION=${VERSION} -t "docker.stackable.tech/stackable/commons-operator:${VERSION}" -f docker/Dockerfile .
+	docker build --build-arg VERSION=${VERSION} -t "docker.stackable.tech/stackable/commons-operator:${VERSION}" -f docker/Dockerfile.alternative .
 
 docker-build-latest: docker-build
 	docker tag "docker.stackable.tech/stackable/commons-operator:${VERSION}" \

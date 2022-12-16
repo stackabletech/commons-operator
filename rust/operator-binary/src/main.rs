@@ -24,6 +24,7 @@ struct Opts {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    //println!("TODO: remove me!");
     let opts = Opts::parse();
     match opts.cmd {
         Command::Crd => {
