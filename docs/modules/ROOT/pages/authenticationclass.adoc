@@ -1,3 +1,0 @@
-= `AuthenticationClass`
-
-Moved to xref:home:concepts:authenticationclass.adoc[]
