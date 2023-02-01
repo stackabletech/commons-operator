@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Specified security context settings needed for OpenShift ([#136]).
+
+[#136]: https://github.com/stackabletech/commons-operator/pull/136
+
+## [23.1.0] - 2023-01-23
+
 ### Added
 
 - Added `AuthenticationClass` provider static (bump operator-rs to `0.28.0`)  ([#123])
