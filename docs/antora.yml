@@ -1,7 +1,3 @@
 ---
-name: commons-operator
+name: home
 version: "23.1"
-title: Stackable Commons Operator
-nav:
-  - modules/ROOT/nav.adoc
-prerelease: false

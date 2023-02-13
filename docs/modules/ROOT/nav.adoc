@@ -1,6 +1,0 @@
-* xref:installation.adoc[]
-* xref:configuration.adoc[]
-* xref:usage.adoc[]
-* Concepts
-** xref:restarter.adoc[]
-** xref:pod-enrichment.adoc[]
