@@ -1,0 +1,3 @@
+= Stackable Commons Operator
+
+The docs can now be found at: xref:home:commons-operator:index.adoc[]
