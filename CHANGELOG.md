@@ -7,8 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Specified security context settings needed for OpenShift ([#136]).
+- Revert openshift settings ([#xxx])
 
 [#136]: https://github.com/stackabletech/commons-operator/pull/136
+[#xxx]: https://github.com/stackabletech/commons-operator/pull/xxx
 
 ## [23.1.0] - 2023-01-23
 
