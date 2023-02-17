@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
+# usage: bundle.sh <release>, called from base folder:
+# e.g. ./deploy/olm/bundle.sh 23.1.0
 
 set -euo pipefail
 set -x
 
 OPERATOR_NAME="commons-operator"
-VERSION="23.1.0"
 
 bundle-clean() {
 	rm -rf "deploy/olm/${VERSION}/bundle"
 	rm -rf "deploy/olm/${VERSION}/bundle.Dockerfile"
 }
-
 
 build-bundle() {
 	opm alpha bundle generate --directory manifests --package "${OPERATOR_NAME}-package" --output-dir bundle --channels stable --default stable
@@ -20,7 +20,9 @@ build-bundle() {
 }
 
 main() {
-  pushd deploy/olm/${VERSION}
+  VERSION="$1";
+
+  pushd "deploy/olm/${VERSION}"
   bundle-clean
   build-bundle
   popd
