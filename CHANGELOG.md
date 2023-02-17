@@ -4,15 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Generate OLM bundle ([#149])
+
+[#149]: https://github.com/stackabletech/commons-operator/pull/149
+
 ### Changed
 
 - Specified security context settings needed for OpenShift ([#136]).
 - Revert openshift settings ([#142])
-- Generate OLM bundle ([#149])
 
 [#136]: https://github.com/stackabletech/commons-operator/pull/136
 [#142]: https://github.com/stackabletech/commons-operator/pull/142
-[#149]: https://github.com/stackabletech/commons-operator/pull/149
 
 ## [23.1.0] - 2023-01-23
 
