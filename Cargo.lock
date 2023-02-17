@@ -1768,7 +1768,7 @@ dependencies = [
 
 [[package]]
 name = "stackable-commons-operator"
-version = "0.5.0-nightly"
+version = "0.0.0-dev"
 dependencies = [
  "anyhow",
  "built",
