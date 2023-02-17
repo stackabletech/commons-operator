@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Generate OLM bundle ([#149])
+
+[#149]: https://github.com/stackabletech/commons-operator/pull/149
+
 ### Changed
 
 - Specified security context settings needed for OpenShift ([#136]).
