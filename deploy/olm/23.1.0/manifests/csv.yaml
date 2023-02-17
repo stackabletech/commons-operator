@@ -63,7 +63,7 @@ spec:
         # a short description of the CRDs purpose for rendering in graphical consoles (optional)
         description: Represents an S3Connection
       - name: authenticationclasses.authentication.stackable.tech
-      # version is the spec.versions[].name value defined in the CRD
+        # version is the spec.versions[].name value defined in the CRD
         version: v1alpha1
         # kind is the CamelCased singular value defined in spec.names.kind of the CRD.
         kind: AuthenticationClass
@@ -91,57 +91,57 @@ spec:
       clusterPermissions:
         - serviceAccountName: commons-operator
           rules:
-          - apiGroups:
-              - ""
-            resources:
-              - pods
-              - configmaps
-              - secrets
-              - nodes
-            verbs:
-              - get
-              - list
-              - watch
-          - apiGroups:
-              - apps
-            resources:
-              - statefulsets
-            verbs:
-              - get
-              - list
-              - watch
-              - patch
-          - apiGroups:
-              - events.k8s.io
-            resources:
-              - events
-            verbs:
-              - create
-          - apiGroups:
-              - s3.stackable.tech
-            resources:
-              - s3buckets
-              - s3connections
-            verbs:
-              - get
-              - list
-              - patch
-              - watch
-          - apiGroups:
-              - authentication.stackable.tech
-            resources:
-              - authenticationclasses
-            verbs:
-              - get
-              - list
-              - patch
-              - watch
-          - apiGroups:
-              - ""
-            resources:
-              - pods/eviction
-            verbs:
-              - create
+            - apiGroups:
+                - ""
+              resources:
+                - pods
+                - configmaps
+                - secrets
+                - nodes
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resources:
+                - statefulsets
+              verbs:
+                - get
+                - list
+                - watch
+                - patch
+            - apiGroups:
+                - events.k8s.io
+              resources:
+                - events
+              verbs:
+                - create
+            - apiGroups:
+                - s3.stackable.tech
+              resources:
+                - s3buckets
+                - s3connections
+              verbs:
+                - get
+                - list
+                - patch
+                - watch
+            - apiGroups:
+                - authentication.stackable.tech
+              resources:
+                - authenticationclasses
+              verbs:
+                - get
+                - list
+                - patch
+                - watch
+            - apiGroups:
+                - ""
+              resources:
+                - pods/eviction
+              verbs:
+                - create
 
       deployments:
         - name: commons-operator
