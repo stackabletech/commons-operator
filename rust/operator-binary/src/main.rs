@@ -1,9 +1,11 @@
 mod pod_enrichment_controller;
 mod restart_controller;
+mod secret_operator;
 
 use futures::pin_mut;
 use stackable_operator::cli::{Command, ProductOperatorRun};
 
+use crate::secret_operator::crd::SecretClass;
 use clap::Parser;
 use stackable_operator::commons::{
     authentication::AuthenticationClass,
@@ -30,6 +32,7 @@ async fn main() -> anyhow::Result<()> {
             AuthenticationClass::print_yaml_schema()?;
             S3Connection::print_yaml_schema()?;
             S3Bucket::print_yaml_schema()?;
+            SecretClass::print_yaml_schema()?;
         }
         Command::Run(ProductOperatorRun {
             product_config: _,
