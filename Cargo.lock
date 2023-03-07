@@ -1690,9 +1690,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.9.14"
+version = "0.9.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d232d893b10de3eb7258ff01974d6ee20663d8e833263c99409d4b13a0209da"
+checksum = "f82e6c8c047aa50a7328632d067bcae6ef38772a79e28daf32f735e0e4f3dd10"
 dependencies = [
  "indexmap",
  "itoa",
@@ -1776,6 +1776,7 @@ dependencies = [
  "futures 0.3.25",
  "serde",
  "serde_json",
+ "serde_yaml 0.9.19",
  "snafu",
  "stackable-operator",
  "strum",
@@ -1806,7 +1807,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "serde_yaml 0.9.14",
+ "serde_yaml 0.9.19",
  "snafu",
  "stackable-operator-derive",
  "strum",
@@ -2203,9 +2204,9 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "unsafe-libyaml"
-version = "0.2.4"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1e5fa573d8ac5f1a856f8d7be41d390ee973daf97c806b2c1a465e4e1406e68"
+checksum = "ad2024452afd3874bf539695e04af6732ba06517424dbf958fdb16a01f3bef6c"
 
 [[package]]
 name = "url"

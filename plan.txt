@@ -1,0 +1,13 @@
+commons-operator workflow:
+1. helm/olm install commons-operator
+-> new: crd for secretclass
+-> sa for commons-operator deployment
+-> deployment using sa for commons-operator deployment
+
+2. commons-operator
+-> restart controller -> business as usual
+-> new: csidriver
+-> new: storageclass
+-> new: sa for daemonset
+-> new: create Daemonset commons-operator-daemonset
+-> new: secretclass "tls" (out-of-the-box SecretClass to use)
