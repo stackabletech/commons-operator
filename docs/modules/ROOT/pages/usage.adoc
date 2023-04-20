@@ -23,4 +23,4 @@ Multiple operators use this CRD as a way to express the authentication of the pr
 
 The following diagram describes the relationship between the CRDs
 
-image::authenticationclass.adoc[]
+image::authenticationclass.svg[]
