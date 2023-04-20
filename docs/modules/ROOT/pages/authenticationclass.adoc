@@ -33,10 +33,7 @@ include::example$authenticationclass-ldap-openldap-simple.yaml[]
 
 The following diagram describes the relationship between the created CRDs
 
-[plantuml]
-----
-include::image$authenticationclass.plantuml[]
-----
+image::authenticationclass.svg[]
 
 === All possible attributes
 The following example shows all possible attributes:
