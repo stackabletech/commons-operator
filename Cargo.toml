@@ -1,2 +1,5 @@
 [workspace]
 members = ["rust/operator-binary"]
+
+[patch.crates-io]
+k8s-openapi = { git = "https://github.com/stackabletech/k8s-openapi", branch = "spike/value-size" }

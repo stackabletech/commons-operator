@@ -17,6 +17,7 @@ use stackable_operator::{
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
+use value_size::Size;
 
 struct Ctx {
     client: Client,
@@ -60,8 +61,48 @@ impl ReconcilerError for Error {
     }
 }
 
+const MIB: usize = 1024 * 1024;
+
 pub async fn start(client: &Client) {
     let controller = Controller::new(client.get_all_api::<Pod>(), ListParams::default());
+    let store = controller.store();
+    std::thread::spawn(move || loop {
+        jemalloc_ctl::epoch::advance().unwrap();
+        println!(
+            "store size (MiB): {store_size}, meta: {meta_size}, managedFields: {mf_size}, spec: {spec_size}, status: {status_size}",
+            store_size = store
+                .state()
+                .iter()
+                .map(|obj| obj.full_size())
+                .sum::<usize>()
+                / MIB,
+            meta_size = store
+                .state()
+                .iter()
+                .map(|obj| obj.metadata.full_size())
+                .sum::<usize>()
+                / MIB,
+            mf_size = store
+                .state()
+                .iter()
+                .map(|obj| obj.metadata.managed_fields.full_size())
+                .sum::<usize>()
+                / MIB,
+            spec_size = store
+                .state()
+                .iter()
+                .map(|obj| obj.spec.full_size())
+                .sum::<usize>()
+                / MIB,
+            status_size = store
+                .state()
+                .iter()
+                .map(|obj| obj.status.full_size())
+                .sum::<usize>()
+                / MIB,
+        );
+        std::thread::sleep(Duration::from_secs(1));
+    });
     controller
         .run(
             reconcile,
