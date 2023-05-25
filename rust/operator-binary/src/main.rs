@@ -4,7 +4,7 @@ mod restart_controller;
 use futures::pin_mut;
 use stackable_operator::cli::{Command, ProductOperatorRun};
 
-use clap::Parser;
+use clap::{crate_description, crate_version, Parser};
 use stackable_operator::commons::{
     authentication::AuthenticationClass,
     s3::{S3Bucket, S3Connection},
@@ -13,10 +13,11 @@ use stackable_operator::CustomResourceExt;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
+    pub const TARGET_PLATFORM: Option<&str> = option_env!("TARGET");
 }
 
 #[derive(Parser)]
-#[clap(about = built_info::PKG_DESCRIPTION, author = stackable_operator::cli::AUTHOR)]
+#[clap(about, author)]
 struct Opts {
     #[clap(subcommand)]
     cmd: Command,
@@ -42,10 +43,10 @@ async fn main() -> anyhow::Result<()> {
                 tracing_target,
             );
             stackable_operator::utils::print_startup_string(
-                built_info::PKG_DESCRIPTION,
-                built_info::PKG_VERSION,
+                crate_description!(),
+                crate_version!(),
                 built_info::GIT_VERSION,
-                built_info::TARGET,
+                built_info::TARGET_PLATFORM.unwrap_or("unknown target"),
                 built_info::BUILT_TIME_UTC,
                 built_info::RUSTC_VERSION,
             );
