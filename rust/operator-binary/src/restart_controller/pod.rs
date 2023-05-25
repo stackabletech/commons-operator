@@ -10,9 +10,9 @@ use stackable_operator::{
     },
     kube::{
         self,
-        api::{EvictParams},
+        api::EvictParams,
         core::DynamicObject,
-        runtime::{controller::Action, reflector::ObjectRef, Controller, watcher},
+        runtime::{controller::Action, reflector::ObjectRef, watcher, Controller},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };

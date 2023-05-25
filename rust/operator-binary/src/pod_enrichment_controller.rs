@@ -6,7 +6,7 @@ use stackable_operator::{
     k8s_openapi::api::core::v1::{Node, Pod},
     kube::{
         core::ObjectMeta,
-        runtime::{controller, reflector::ObjectRef, Controller, watcher},
+        runtime::{controller, reflector::ObjectRef, watcher, Controller},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };
