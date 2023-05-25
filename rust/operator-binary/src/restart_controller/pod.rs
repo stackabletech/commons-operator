@@ -10,9 +10,9 @@ use stackable_operator::{
     },
     kube::{
         self,
-        api::{EvictParams, ListParams},
+        api::{EvictParams},
         core::DynamicObject,
-        runtime::{controller::Action, reflector::ObjectRef, Controller},
+        runtime::{controller::Action, reflector::ObjectRef, Controller, watcher},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };
@@ -61,7 +61,7 @@ impl ReconcilerError for Error {
 }
 
 pub async fn start(client: &Client) {
-    let controller = Controller::new(client.get_all_api::<Pod>(), ListParams::default());
+    let controller = Controller::new(client.get_all_api::<Pod>(), watcher::Config::default());
     controller
         .run(
             reconcile,

@@ -5,9 +5,8 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     k8s_openapi::api::core::v1::{Node, Pod},
     kube::{
-        api::ListParams,
         core::ObjectMeta,
-        runtime::{controller, reflector::ObjectRef, Controller},
+        runtime::{controller, reflector::ObjectRef, Controller, watcher},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
 };
@@ -50,13 +49,13 @@ impl ReconcilerError for Error {
 pub async fn start(client: &stackable_operator::client::Client) {
     let controller = Controller::new(
         client.get_all_api::<Pod>(),
-        ListParams::default().labels("enrichment.stackable.tech/enabled=true"),
+        watcher::Config::default().labels("enrichment.stackable.tech/enabled=true"),
     );
     let pods = controller.store();
     controller
         .watches(
             client.get_all_api::<Node>(),
-            ListParams::default(),
+            watcher::Config::default(),
             move |node| {
                 pods.state()
                     .into_iter()

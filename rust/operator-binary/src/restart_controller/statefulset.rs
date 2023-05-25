@@ -12,7 +12,7 @@ use stackable_operator::k8s_openapi::api::core::v1::{
     ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume,
 };
 use stackable_operator::kube;
-use stackable_operator::kube::api::{ListParams, Patch, PatchParams};
+use stackable_operator::kube::api::{Patch, PatchParams};
 use stackable_operator::kube::core::DynamicObject;
 use stackable_operator::kube::runtime::controller::{
     trigger_self, trigger_with, Action, ReconcileRequest,
@@ -84,13 +84,13 @@ pub async fn start(client: &Client) {
         stream::select(
             stream::select(
                 trigger_all(
-                    reflector(cm_store, watcher(cms, ListParams::default()))
+                    reflector(cm_store, watcher(cms, watcher::Config::default()))
                         .inspect(|_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst))
                         .touched_objects(),
                     sts_store.as_reader(),
                 ),
                 trigger_all(
-                    reflector(secret_store, watcher(secrets, ListParams::default()))
+                    reflector(secret_store, watcher(secrets, watcher::Config::default()))
                         .inspect(|_| {
                             secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst)
                         })
@@ -103,7 +103,7 @@ pub async fn start(client: &Client) {
                     sts_store,
                     watcher(
                         stses,
-                        ListParams::default().labels("restarter.stackable.tech/enabled=true"),
+                        watcher::Config::default().labels("restarter.stackable.tech/enabled=true"),
                     ),
                 )
                 .applied_objects(),
