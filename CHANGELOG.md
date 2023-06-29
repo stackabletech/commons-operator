@@ -27,9 +27,11 @@ All notable changes to this project will be documented in this file.
 
 - Specified security context settings needed for OpenShift ([#136]).
 - Revert openshift settings ([#142])
+- Operator is now deployed by the Helm chart with resource limits ([#165])
 
 [#136]: https://github.com/stackabletech/commons-operator/pull/136
 [#142]: https://github.com/stackabletech/commons-operator/pull/142
+[#165]: https://github.com/stackabletech/commons-operator/pull/165
 
 ## [23.1.0] - 2023-01-23
 
