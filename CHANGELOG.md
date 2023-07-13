@@ -10,10 +10,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- `operator-rs` `0.28.0` -> `0.41.0` ([#161]).
+- `operator-rs` `0.28.0` -> `0.44.0` ([#161], [#167]).
 
 [#160]: https://github.com/stackabletech/commons-operator/pull/160
 [#161]: https://github.com/stackabletech/commons-operator/pull/161
+[#167]: https://github.com/stackabletech/commons-operator/pull/167
 
 ## [23.4.0] - 2023-04-17
 
