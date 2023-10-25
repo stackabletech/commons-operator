@@ -110,6 +110,7 @@ pub async fn start(client: &Client) {
                 (),
             ),
         ),
+        Default::default(),
     )
     .for_each(|res| async move {
         report_controller_reconciled(client, "statefulset.restarter.commons.stackable.tech", &res)
