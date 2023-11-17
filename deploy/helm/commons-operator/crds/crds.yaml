@@ -27,13 +27,13 @@ spec:
                   description: Provider used for authentication like LDAP or Kerberos
                   oneOf:
                     - required:
-                        - ldap
-                    - required:
-                        - tls
-                    - required:
                         - static
                     - required:
+                        - ldap
+                    - required:
                         - oidc
+                    - required:
+                        - tls
                   properties:
                     ldap:
                       properties:
@@ -157,20 +157,29 @@ spec:
                       description: This struct contains configuration values to configure an OpenID Connect (OIDC) authentication class. Required fields are the identity provider (IdP) `hostname` and the TLS configuration. The `port` is selected automatically if not configured otherwise. The `rootPath` defaults to `/`.
                       properties:
                         hostname:
-                          description: Hostname of the identity provider
+                          description: Hostname of the identity provider, e.g. `my.keycloak.corp`.
                           type: string
                         port:
-                          description: Port of the identity provider. If TLS is used defaults to 443, otherwise to 80
+                          description: Port of the identity provider. If TLS is used defaults to `443`, otherwise to `80`.
                           format: uint16
                           minimum: 0.0
                           nullable: true
                           type: integer
+                        providerHint:
+                          description: |-
+                            This is a hint about which identity provider is used by the [`AuthenticationClass`][authclass]. Operators *can* opt to use this value to enable known quirks around OIDC / OAuth authentication. [`None`] means there is no hint and OIDC should be used as it is intented to be used (via the `.well-known` discovery).
+
+                            [authclass]: crate::commons::authentication::AuthenticationClass
+                          enum:
+                            - Keycloak
+                          nullable: true
+                          type: string
                         rootPath:
                           default: /
                           description: Root HTTP path of the identity provider. Defaults to `/`.
                           type: string
                         scopes:
-                          description: Scopes to request from your Identity Provider. E.g. for keycloak you need to at least request the `openid` scope.
+                          description: Scopes to request from your identity provider. It is recommended to request the `openid`, `email`, and `profile` scopes.
                           items:
                             type: string
                           type: array
