@@ -1942,7 +1942,7 @@ dependencies = [
 [[package]]
 name = "stackable-operator"
 version = "0.56.0"
-source = "git+https://github.com/stackabletech//operator-rs.git?branch=feat/sso-auth-classes#90bdd2da61ce4da0e3c72f89d93520ea3afb0af1"
+source = "git+https://github.com/stackabletech//operator-rs.git?branch=feat/sso-auth-classes#c3df43aa597eeb7a67d92338b6fbd4bd061e1098"
 dependencies = [
  "chrono",
  "clap",
@@ -1978,7 +1978,7 @@ dependencies = [
 [[package]]
 name = "stackable-operator-derive"
 version = "0.56.0"
-source = "git+https://github.com/stackabletech//operator-rs.git?branch=feat/sso-auth-classes#90bdd2da61ce4da0e3c72f89d93520ea3afb0af1"
+source = "git+https://github.com/stackabletech//operator-rs.git?branch=feat/sso-auth-classes#c3df43aa597eeb7a67d92338b6fbd4bd061e1098"
 dependencies = [
  "darling 0.20.3",
  "proc-macro2",
