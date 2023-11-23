@@ -18,7 +18,7 @@ use stackable_operator::kube::runtime::controller::{
     trigger_self, trigger_with, Action, ReconcileRequest,
 };
 use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
-use stackable_operator::kube::runtime::{applier, reflector, watcher, WatchStreamExt};
+use stackable_operator::kube::runtime::{applier, reflector, watcher, Config, WatchStreamExt};
 use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -110,6 +110,7 @@ pub async fn start(client: &Client) {
                 (),
             ),
         ),
+        Config::default(),
     )
     .for_each(|res| async move {
         report_controller_reconciled(client, "statefulset.restarter.commons.stackable.tech", &res)
