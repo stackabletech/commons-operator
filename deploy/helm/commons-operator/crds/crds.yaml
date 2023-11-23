@@ -165,9 +165,17 @@ spec:
                           minimum: 0.0
                           nullable: true
                           type: integer
+                        principalClaim:
+                          description: |-
+                            If a product extracts some sort of "effective user" that's is represented by a string internally, this config determines with claim is used to extract that string. It is desirable to use `sub` in here (or some other stable identifier), but in many cases you might need to use `preferred_username` (e.g. in case of Keycloak) or a different claim instead.
+
+                            Please note that some products hard-coded the claim in their implementation, so some product operators might error out if the product hardcodes a different claim than configured here.
+
+                            We don't provide any default value, as there is no correct way of doing it that works in all setups. Most demos will probably use `preferred_username`, although `sub` being more desirable, but technically impossible with the current behavior of the products.
+                          type: string
                         providerHint:
                           description: |-
-                            This is a hint about which identity provider is used by the [`AuthenticationClass`][authclass]. Operators *can* opt to use this value to enable known quirks around OIDC / OAuth authentication. [`None`] means there is no hint and OIDC should be used as it is intented to be used (via the `.well-known` discovery).
+                            This is a hint about which identity provider is used by the [`AuthenticationClass`][authclass]. Operators *can* opt to use this value to enable known quirks around OIDC / OAuth authentication. [`None`] means there is no hint and OIDC should be used as it is intended to be used (via the `.well-known` discovery).
 
                             [authclass]: crate::commons::authentication::AuthenticationClass
                           enum:
@@ -225,6 +233,7 @@ spec:
                           type: object
                       required:
                         - hostname
+                        - principalClaim
                         - scopes
                       type: object
                     static:
