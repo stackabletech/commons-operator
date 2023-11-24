@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [23.11.0] - 2023-11-24
+
 ## [23.7.0] - 2023-07-14
 
 ### Added
