@@ -167,17 +167,14 @@ spec:
                           type: integer
                         principalClaim:
                           description: |-
-                            If a product extracts some sort of "effective user" that's is represented by a string internally, this config determines with claim is used to extract that string. It is desirable to use `sub` in here (or some other stable identifier), but in many cases you might need to use `preferred_username` (e.g. in case of Keycloak) or a different claim instead.
+                            If a product extracts some sort of "effective user" that is represented by a string internally, this config determines with claim is used to extract that string. It is desirable to use `sub` in here (or some other stable identifier), but in many cases you might need to use `preferred_username` (e.g. in case of Keycloak) or a different claim instead.
 
                             Please note that some products hard-coded the claim in their implementation, so some product operators might error out if the product hardcodes a different claim than configured here.
 
                             We don't provide any default value, as there is no correct way of doing it that works in all setups. Most demos will probably use `preferred_username`, although `sub` being more desirable, but technically impossible with the current behavior of the products.
                           type: string
                         providerHint:
-                          description: |-
-                            This is a hint about which identity provider is used by the [`AuthenticationClass`][authclass]. Operators *can* opt to use this value to enable known quirks around OIDC / OAuth authentication. [`None`] means there is no hint and OIDC should be used as it is intended to be used (via the `.well-known` discovery).
-
-                            [authclass]: crate::commons::authentication::AuthenticationClass
+                          description: This is a hint about which identity provider is used by the [`AuthenticationClass`]. Operators *can* opt to use this value to enable known quirks around OIDC / OAuth authentication. [`None`] means there is no hint and OIDC should be used as it is intended to be used (via the `.well-known` discovery).
                           enum:
                             - Keycloak
                           nullable: true
@@ -295,7 +292,7 @@ spec:
               description: S3 connection definition as CRD.
               properties:
                 accessStyle:
-                  description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the official documentation on <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html>
+                  description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html).
                   enum:
                     - Path
                     - VirtualHosted
@@ -328,11 +325,11 @@ spec:
                     - secretClass
                   type: object
                 host:
-                  description: Hostname of the S3 server without any protocol or port
+                  description: 'Hostname of the S3 server without any protocol or port. For example: `west1.my-cloud.com`.'
                   nullable: true
                   type: string
                 port:
-                  description: Port the S3 server listens on. If not specified the products will determine the port to use.
+                  description: Port the S3 server listens on. If not specified the product will determine the port to use.
                   format: uint16
                   minimum: 0.0
                   nullable: true
@@ -412,10 +409,11 @@ spec:
               description: S3 bucket specification containing only the bucket name and an inlined or referenced connection specification.
               properties:
                 bucketName:
+                  description: The name of the S3 bucket.
                   nullable: true
                   type: string
                 connection:
-                  description: Operators are expected to define fields for this type in order to work with S3 connections.
+                  description: The definition of an S3 connection, either inline or as a reference.
                   nullable: true
                   oneOf:
                     - required:
@@ -424,10 +422,10 @@ spec:
                         - reference
                   properties:
                     inline:
-                      description: S3 connection definition as CRD.
+                      description: Inline definition of an S3 connection.
                       properties:
                         accessStyle:
-                          description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the official documentation on <https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html>
+                          description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html).
                           enum:
                             - Path
                             - VirtualHosted
@@ -460,11 +458,11 @@ spec:
                             - secretClass
                           type: object
                         host:
-                          description: Hostname of the S3 server without any protocol or port
+                          description: 'Hostname of the S3 server without any protocol or port. For example: `west1.my-cloud.com`.'
                           nullable: true
                           type: string
                         port:
-                          description: Port the S3 server listens on. If not specified the products will determine the port to use.
+                          description: Port the S3 server listens on. If not specified the product will determine the port to use.
                           format: uint16
                           minimum: 0.0
                           nullable: true
@@ -511,6 +509,7 @@ spec:
                           type: object
                       type: object
                     reference:
+                      description: A reference to an S3Connection resource.
                       type: string
                   type: object
               type: object
