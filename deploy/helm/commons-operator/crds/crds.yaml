@@ -57,7 +57,7 @@ spec:
                                   type: boolean
                                 services:
                                   default: []
-                                  description: The service scope allows Pod objects to specify custom scopes. This should typically correspond to Service objects that the Pod participate in.
+                                  description: The service scope allows Pod objects to specify custom scopes. This should typically correspond to Service objects that the Pod participates in.
                                   items:
                                     type: string
                                   type: array
@@ -142,7 +142,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a ca cert but don't have access to the key you can still use this method.
+                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -159,7 +159,7 @@ spec:
                         - hostname
                       type: object
                     oidc:
-                      description: The OIDC provider can be used to configure OpenID connect.
+                      description: The OIDC provider can be used to configure OpenID Connect.
                       properties:
                         hostname:
                           description: Hostname of the identity provider, e.g. `my.keycloak.corp`.
@@ -220,7 +220,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a ca cert but don't have access to the key you can still use this method.
+                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -323,7 +323,7 @@ spec:
                           type: boolean
                         services:
                           default: []
-                          description: The service scope allows Pod objects to specify custom scopes. This should typically correspond to Service objects that the Pod participate in.
+                          description: The service scope allows Pod objects to specify custom scopes. This should typically correspond to Service objects that the Pod participates in.
                           items:
                             type: string
                           type: array
@@ -371,7 +371,7 @@ spec:
                                     - secretClass
                               properties:
                                 secretClass:
-                                  description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a ca cert but don't have access to the key you can still use this method.
+                                  description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                   type: string
                                 webPki:
                                   description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -459,7 +459,7 @@ spec:
                                   type: boolean
                                 services:
                                   default: []
-                                  description: The service scope allows Pod objects to specify custom scopes. This should typically correspond to Service objects that the Pod participate in.
+                                  description: The service scope allows Pod objects to specify custom scopes. This should typically correspond to Service objects that the Pod participates in.
                                   items:
                                     type: string
                                   type: array
@@ -507,7 +507,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a ca cert but don't have access to the key you can still use this method.
+                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
