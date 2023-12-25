@@ -3,8 +3,8 @@
 * Concepts
 ** xref:commons-operator:restarter.adoc[]
 ** xref:commons-operator:pod-enrichment.adoc[]
-* xref:druid:reference/index.adoc[]
-** xref:druid:reference/crds.adoc[]
+* xref:commons-operator:reference/index.adoc[]
+** xref:commons-operator:reference/crds.adoc[]
 *** {crd-docs}/authentication.stackable.tech/authenticationclass/v1alpha1/[AuthenticationClass {external-link-icon}^]
 *** {crd-docs}/s3.stackable.tech/s3bucket/v1alpha1/[S3Bucket {external-link-icon}^]
 *** {crd-docs}/s3.stackable.tech/s3connection/v1alpha1/[S3Connection {external-link-icon}^]
