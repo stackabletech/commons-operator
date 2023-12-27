@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Command::Run(ProductOperatorRun {
             product_config: _,
-            watch_namespace: _,
+            watch_namespace,
             tracing_target,
         }) => {
             stackable_operator::logging::initialize_logging(
@@ -58,9 +58,11 @@ async fn main() -> anyhow::Result<()> {
             ))
             .await?;
 
-            let sts_restart_controller = restart_controller::statefulset::start(&client);
-            let pod_restart_controller = restart_controller::pod::start(&client);
-            let pod_enrichment_controller = pod_enrichment_controller::start(&client);
+            let sts_restart_controller =
+                restart_controller::statefulset::start(&client, &watch_namespace);
+            let pod_restart_controller = restart_controller::pod::start(&client, &watch_namespace);
+            let pod_enrichment_controller =
+                pod_enrichment_controller::start(&client, &watch_namespace);
             pin_mut!(
                 sts_restart_controller,
                 pod_restart_controller,
