@@ -1,0 +1,9 @@
+= Reference
+
+Consult the reference documentation section to find exhaustive information on:
+
+* Descriptions and default values of all properties in the CRDs used by this operator in the xref:reference/crds.adoc[].
+
+== Command line parameters and environment variables
+
+At the moment this operator accepts no command line parameters and does not read any environment variables.
