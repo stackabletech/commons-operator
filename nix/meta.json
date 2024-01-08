@@ -1,1 +1,1 @@
-{"operator": {"name": "commons-operator", "include_productconfig": false, "pretty_string": "Stackable Commons", "product_string": "commons", "url": "stackabletech/commons-operator.git"}}
+{"operator": {"name": "commons-operator", "include_productconfig": false, "has_product": false, "pretty_string": "Stackable Commons", "product_string": "commons", "url": "stackabletech/commons-operator.git"}}

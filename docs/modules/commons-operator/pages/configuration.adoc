@@ -1,4 +1,0 @@
-= Configuration
-
-== Command Line Parameters
-At the moment this operator accepts no command line parameters
