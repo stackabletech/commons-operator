@@ -9,6 +9,7 @@ use stackable_operator::{
         runtime::{controller, reflector::ObjectRef, watcher, Controller},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
+    namespace::WatchNamespace,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -46,9 +47,9 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn start(client: &stackable_operator::client::Client) {
+pub async fn start(client: &stackable_operator::client::Client, watch_namespace: &WatchNamespace) {
     let controller = Controller::new(
-        client.get_all_api::<Pod>(),
+        watch_namespace.get_api::<Pod>(client),
         watcher::Config::default().labels("enrichment.stackable.tech/enabled=true"),
     );
     let pods = controller.store();

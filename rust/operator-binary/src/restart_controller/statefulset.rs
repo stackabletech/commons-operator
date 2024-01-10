@@ -21,6 +21,7 @@ use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
 use stackable_operator::kube::runtime::{applier, reflector, watcher, Config, WatchStreamExt};
 use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
+use stackable_operator::namespace::WatchNamespace;
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 struct Ctx {
@@ -59,11 +60,10 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn start(client: &Client) {
-    let kube = client.as_kube_client();
-    let stses = kube::Api::<StatefulSet>::all(kube.clone());
-    let cms = kube::Api::<ConfigMap>::all(kube.clone());
-    let secrets = kube::Api::<Secret>::all(kube.clone());
+pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
+    let stses = watch_namespace.get_api::<StatefulSet>(client);
+    let cms = watch_namespace.get_api::<ConfigMap>(client);
+    let secrets = watch_namespace.get_api::<Secret>(client);
     let sts_store = reflector::store::Writer::new(());
     let cm_store = reflector::store::Writer::new(());
     let secret_store = reflector::store::Writer::new(());
@@ -74,7 +74,7 @@ pub async fn start(client: &Client) {
         |sts, ctx| Box::pin(reconcile(sts, ctx)),
         error_policy,
         Arc::new(Ctx {
-            kube,
+            kube: client.as_kube_client(),
             cms: cm_store.as_reader(),
             secrets: secret_store.as_reader(),
             cms_inited: cms_inited.clone(),

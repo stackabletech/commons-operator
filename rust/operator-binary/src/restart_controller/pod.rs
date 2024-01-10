@@ -15,6 +15,7 @@ use stackable_operator::{
         runtime::{controller::Action, reflector::ObjectRef, watcher, Controller},
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
+    namespace::WatchNamespace,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -60,8 +61,11 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn start(client: &Client) {
-    let controller = Controller::new(client.get_all_api::<Pod>(), watcher::Config::default());
+pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
+    let controller = Controller::new(
+        watch_namespace.get_api::<Pod>(client),
+        watcher::Config::default(),
+    );
     controller
         .run(
             reconcile,
