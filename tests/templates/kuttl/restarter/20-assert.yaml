@@ -1,0 +1,6 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 180
+commands:
+  - script: test "restarted" = $(kubectl exec sleep-0 -c sleep -n $NAMESPACE -- cat /config/property)
