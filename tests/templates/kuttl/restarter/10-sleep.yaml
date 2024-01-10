@@ -32,12 +32,12 @@ spec:
               - key: property
                 path: property
       containers:
-      - name: sleep
-        image: alpine
-        command:
-          - sleep
-        args:
-          - infinity
-        volumeMounts:
+        - name: sleep
+          image: alpine
+          command:
+            - sleep
+          args:
+            - infinity
+          volumeMounts:
             - name: config
               mountPath: /config
