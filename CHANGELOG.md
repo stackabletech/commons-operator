@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Respect `--watch-namespace` CLI argument ([#193]).
+
+[#193]: https://github.com/stackabletech/commons-operator/pull/193
+
 ## [23.11.0] - 2023-11-24
 
 ## [23.7.0] - 2023-07-14
