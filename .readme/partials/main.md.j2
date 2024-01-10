@@ -1,15 +1,16 @@
-Operator for common objects of the Stackable Data Platform.
+Operator for common objects of the Stackable Data Platform (SDP).
+This operator is required for most installations of the SDP and some things might not work if you do not install it.
 
-{% include "partials/borrowed/overview_blurb.md.j2" %}
+Once installed it should run unattended and do [its thing](https://docs.stackable.tech/home/stable/{{operator_name}}/usage).
+
+{% filter trim %}
+  {%- include "partials/borrowed/overview_blurb.md.j2" -%}
+{% endfilter %}
 
 ## Installation
 
-You can install the operator using [stackablectl or helm](https://docs.stackable.tech/{{operator_name}}/stable/getting_started/installation.html).
+You can install the operator using [stackablectl or helm](https://docs.stackable.tech/home/stable/{{operator_name}}/getting_started/installation).
 
-Read on to get started with it, or see it in action in one of our [demos](https://stackable.tech/en/demos/).
-
-## Getting Started
-
-You can follow this [tutorial](https://docs.stackable.tech/{{operator_name}}/stable/getting_started/first_steps.html).
-
-{% include "partials/borrowed/documentation.md.j2" %}
+{% filter trim %}
+  {%- include "partials/borrowed/documentation.md.j2" -%}
+{% endfilter %}
