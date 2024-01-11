@@ -1,0 +1,16 @@
+---
+dimensions:
+  - name: openshift
+    values:
+      - "false"
+tests:
+  - name: restarter
+    dimensions:
+      - openshift
+suites:
+  - name: nightly
+  - name: openshift
+    patch:
+      - dimensions:
+          - name: openshift
+            expr: "true"
