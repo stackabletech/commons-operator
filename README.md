@@ -13,13 +13,13 @@
 Operator for common objects of the Stackable Data Platform (SDP).
 This operator is required for most installations of the SDP and some things might not work if you do not install it.
 
-Once installed it should run unattended and do [its thing](https://docs.stackable.tech/home/stable/commons/usage).
+Once installed it should run unattended and do [its thing](https://docs.stackable.tech/home/stable/commons-operator/usage).
 
 It is part of the Stackable Data Platform, a curated selection of the best open source data apps like Apache Kafka, Apache Druid, Trino or Apache Spark, [all](#other-operators) working together seamlessly. Based on Kubernetes, it runs everywhere – [on prem or in the cloud](#supported-platforms).
 
 ## Installation
 
-You can install the operator using [stackablectl or helm](https://docs.stackable.tech/home/stable/commons/getting_started/installation).
+You can install the operator using [stackablectl or helm](https://docs.stackable.tech/home/stable/commons-operator/getting_started/installation).
 
 ## Documentation
 
