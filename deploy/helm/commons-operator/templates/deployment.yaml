@@ -5,6 +5,8 @@ metadata:
   name: {{ include "operator.fullname" . }}-deployment
   labels:
     {{- include "operator.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- end }}
 spec:
   replicas: 1
   strategy:
@@ -22,8 +24,10 @@ spec:
         {{- end }}
       labels:
         {{- include "operator.selectorLabels" . | nindent 8 }}
+        {{- with .Values.labels }}
+        {{- end }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.image.pullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
