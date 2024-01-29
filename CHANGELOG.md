@@ -4,11 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Helm: support labels in values.yaml ([#203]).
+
 ### Fixed
 
 - Respect `--watch-namespace` CLI argument ([#193]).
 
 [#193]: https://github.com/stackabletech/commons-operator/pull/193
+[#203]: https://github.com/stackabletech/commons-operator/pull/203
 
 ## [23.11.0] - 2023-11-24
 
