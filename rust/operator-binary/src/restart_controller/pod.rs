@@ -135,12 +135,16 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
             Ok(Action::await_change())
         }
         Some(Ok(time_until_pod_expires)) => {
-            tracing::info!("Certificate is still valid, reqeueing with delay of [{:?}]", time_until_pod_expires);
+            tracing::info!(
+                "Certificate is still valid, reqeueing with delay of [{:?}]",
+                time_until_pod_expires
+            );
             Ok(Action::requeue(time_until_pod_expires))
         }
         None => {
             tracing::info!("No expiry annotations found, ignoring pod!");
-            Ok(Action::await_change())},
+            Ok(Action::await_change())
+        }
     }
 }
 
