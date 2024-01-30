@@ -81,14 +81,18 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
 }
 
 async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
+    tracing::info!("Starting reconciliation ..");
     if pod.metadata.deletion_timestamp.is_some() {
         // Object is already being deleted, no point trying again
+        tracing::info!("Pod is already being deleted, taking no action!");
         return Ok(Action::await_change());
     }
 
-    let pod_expires_at = pod
-        .metadata
-        .annotations
+    let annotations = &pod.metadata.annotations;
+
+    tracing::debug!("Found expiry annotations: [{:?}]", annotations);
+
+    let pod_expires_at = annotations
         .iter()
         .flatten()
         .filter(|(k, _)| k.starts_with("restarter.stackable.tech/expires-at."))
@@ -104,10 +108,18 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
         })
         .transpose()?;
 
+    tracing::debug!(
+        "Proceeding with closest expiration time [{:?}]",
+        pod_expires_at
+    );
     let now = DateTime::<FixedOffset>::from(Utc::now());
     let time_until_pod_expires = pod_expires_at.map(|expires_at| (expires_at - now).to_std());
     match time_until_pod_expires {
         Some(Err(_has_already_expired)) => {
+            tracing::info!(
+                "Evicting pod, due to stated expiration date being reached - valid_until=[{}]",
+                pod_expires_at.unwrap()
+            );
             let pods = ctx.client.get_api::<Pod>(
                 pod.metadata
                     .namespace
@@ -122,8 +134,13 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
             .context(EvictPodSnafu)?;
             Ok(Action::await_change())
         }
-        Some(Ok(time_until_pod_expires)) => Ok(Action::requeue(time_until_pod_expires)),
-        None => Ok(Action::await_change()),
+        Some(Ok(time_until_pod_expires)) => {
+            tracing::info!("Certificate is still valid, reqeueing with delay of [{:?}]", time_until_pod_expires);
+            Ok(Action::requeue(time_until_pod_expires))
+        }
+        None => {
+            tracing::info!("No expiry annotations found, ignoring pod!");
+            Ok(Action::await_change())},
     }
 }
 
