@@ -92,6 +92,10 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
 
     tracing::debug!("Found expiry annotations: [{:?}]", annotations);
 
+    // Parse timestamp from all found annotations that start with `restarter.stackable.tech/expires-at.`
+    // Any error that occurs during parsing of timestamps causes reconciliation to abort here.
+    // In case there are multiple annotations on the pod the smallest (soonest) time is returned
+    // as result that will be used for evaluation of expiration.
     let pod_expires_at = annotations
         .iter()
         .flatten()
@@ -113,7 +117,17 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
         pod_expires_at
     );
     let now = DateTime::<FixedOffset>::from(Utc::now());
+
+    // Calculate the time remaining from now until the stated expiration time by subtraction
+    // The call to `chrono::Duration::to_std()` returns an error if the resulting duration is
+    // negative -> i.e. when the certificate has expired.
+
     let time_until_pod_expires = pod_expires_at.map(|expires_at| (expires_at - now).to_std());
+
+    // Match on result of subtraction, possible cases:
+    // Some(Error<...>) -> duration was negative, cert has expired
+    // Some(Ok<Duration<>>) -> duration was positive, cert still valid
+    // None -> there were no annotations to process, pod is not in scope for this code
     match time_until_pod_expires {
         Some(Err(_has_already_expired)) => {
             tracing::info!(
@@ -136,7 +150,8 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
         }
         Some(Ok(time_until_pod_expires)) => {
             tracing::info!(
-                "Certificate is still valid, reqeueing with delay of [{:?}]",
+                "Certificate still valid until [{:?}], reqeueing with delay of [{:?}]",
+                pod_expires_at,
                 time_until_pod_expires
             );
             Ok(Action::requeue(time_until_pod_expires))
