@@ -120,8 +120,7 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
 
     // Calculate the time remaining from now until the stated expiration time by subtraction
     // The call to `chrono::Duration::to_std()` returns an error if the resulting duration is
-    // negative -> i.e. when the certificate has expired.
-
+    // negative -> i.e. when the pod has expired.
     let time_until_pod_expires = pod_expires_at.map(|expires_at| (expires_at - now).to_std());
 
     // Match on result of subtraction, possible cases:
@@ -131,7 +130,7 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
     match time_until_pod_expires {
         Some(Err(_has_already_expired)) => {
             tracing::info!(
-                pod.expires_at = %pod_expires_at.unwrap(),
+                pod.expires_at = ?pod_expires_at,
                 "Evicting pod, due to stated expiration date being reached",
             );
             let pods = ctx.client.get_api::<Pod>(
@@ -148,10 +147,12 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
             .context(EvictPodSnafu)?;
             Ok(Action::await_change())
         }
+
+
         Some(Ok(time_until_pod_expires)) => {
             tracing::info!(
-                pod.expires_at = %pod.expires_at.unwrap(),
-                recheck_delay = %time_until_pod_expires,
+                pod.expires_at = ?pod_expires_at,
+                recheck_delay = ?time_until_pod_expires,
                 "Pod still valid, rescheduling check",
             );
             Ok(Action::requeue(time_until_pod_expires))
