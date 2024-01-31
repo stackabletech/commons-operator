@@ -148,7 +148,6 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
             Ok(Action::await_change())
         }
 
-
         Some(Ok(time_until_pod_expires)) => {
             tracing::info!(
                 pod.expires_at = ?pod_expires_at,
