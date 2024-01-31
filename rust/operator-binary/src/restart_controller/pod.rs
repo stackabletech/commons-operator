@@ -90,7 +90,7 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
 
     let annotations = &pod.metadata.annotations;
 
-    tracing::debug!("Found expiry annotations: [{:?}]", annotations);
+    tracing::debug!(pod.annotations = ?annotations, "Found expiry annotations");
 
     // Parse timestamp from all found annotations that start with `restarter.stackable.tech/expires-at.`
     // Any error that occurs during parsing of timestamps causes reconciliation to abort here.
@@ -113,8 +113,8 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
         .transpose()?;
 
     tracing::debug!(
-        "Proceeding with closest expiration time [{:?}]",
-        pod_expires_at
+        pod.expires_at = ?pod_expires_at,
+        "Proceeding with closest expiration time",
     );
     let now = DateTime::<FixedOffset>::from(Utc::now());
 
@@ -131,8 +131,8 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
     match time_until_pod_expires {
         Some(Err(_has_already_expired)) => {
             tracing::info!(
-                "Evicting pod, due to stated expiration date being reached - valid_until=[{}]",
-                pod_expires_at.unwrap()
+                pod.expires_at = %pod_expires_at.unwrap(),
+                "Evicting pod, due to stated expiration date being reached",
             );
             let pods = ctx.client.get_api::<Pod>(
                 pod.metadata
@@ -150,9 +150,9 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
         }
         Some(Ok(time_until_pod_expires)) => {
             tracing::info!(
-                "Certificate still valid until [{:?}], reqeueing with delay of [{:?}]",
-                pod_expires_at,
-                time_until_pod_expires
+                pod.expires_at = %pod.expires_at.unwrap(),
+                recheck_delay = %time_until_pod_expires,
+                "Pod still valid, rescheduling check",
             );
             Ok(Action::requeue(time_until_pod_expires))
         }
