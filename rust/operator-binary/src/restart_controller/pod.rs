@@ -81,14 +81,22 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
 }
 
 async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
+    tracing::info!("Starting reconciliation ..");
     if pod.metadata.deletion_timestamp.is_some() {
         // Object is already being deleted, no point trying again
+        tracing::info!("Pod is already being deleted, taking no action!");
         return Ok(Action::await_change());
     }
 
-    let pod_expires_at = pod
-        .metadata
-        .annotations
+    let annotations = &pod.metadata.annotations;
+
+    tracing::debug!(pod.annotations = ?annotations, "Found expiry annotations");
+
+    // Parse timestamp from all found annotations that start with `restarter.stackable.tech/expires-at.`
+    // Any error that occurs during parsing of timestamps causes reconciliation to abort here.
+    // In case there are multiple annotations on the pod the smallest (soonest) time is returned
+    // as result that will be used for evaluation of expiration.
+    let pod_expires_at = annotations
         .iter()
         .flatten()
         .filter(|(k, _)| k.starts_with("restarter.stackable.tech/expires-at."))
@@ -104,10 +112,27 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
         })
         .transpose()?;
 
+    tracing::debug!(
+        pod.expires_at = ?pod_expires_at,
+        "Proceeding with closest expiration time",
+    );
     let now = DateTime::<FixedOffset>::from(Utc::now());
+
+    // Calculate the time remaining from now until the stated expiration time by subtraction
+    // The call to `chrono::Duration::to_std()` returns an error if the resulting duration is
+    // negative -> i.e. when the pod has expired.
     let time_until_pod_expires = pod_expires_at.map(|expires_at| (expires_at - now).to_std());
+
+    // Match on result of subtraction, possible cases:
+    // Some(Error<...>) -> duration was negative, cert has expired
+    // Some(Ok<Duration<>>) -> duration was positive, cert still valid
+    // None -> there were no annotations to process, pod is not in scope for this code
     match time_until_pod_expires {
         Some(Err(_has_already_expired)) => {
+            tracing::info!(
+                pod.expires_at = ?pod_expires_at,
+                "Evicting pod, due to stated expiration date being reached",
+            );
             let pods = ctx.client.get_api::<Pod>(
                 pod.metadata
                     .namespace
@@ -122,8 +147,19 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
             .context(EvictPodSnafu)?;
             Ok(Action::await_change())
         }
-        Some(Ok(time_until_pod_expires)) => Ok(Action::requeue(time_until_pod_expires)),
-        None => Ok(Action::await_change()),
+
+        Some(Ok(time_until_pod_expires)) => {
+            tracing::info!(
+                pod.expires_at = ?pod_expires_at,
+                recheck_delay = ?time_until_pod_expires,
+                "Pod still valid, rescheduling check",
+            );
+            Ok(Action::requeue(time_until_pod_expires))
+        }
+        None => {
+            tracing::info!("No expiry annotations found, ignoring pod!");
+            Ok(Action::await_change())
+        }
     }
 }
 
