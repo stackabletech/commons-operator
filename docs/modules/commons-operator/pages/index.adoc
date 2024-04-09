@@ -1,4 +1,10 @@
 = Stackable Commons Operator
+:github: https://github.com/stackabletech/commons-operator/
+:crd: {crd-docs-base-url}/commons-operator/{crd-docs-version}/
 
-This is an operator for Kubernetes that provides and manages common objects of
-the Stackable Data Platform.
+[.link-bar]
+* {github}[GitHub {external-link-icon}^]
+* {crd}[CRD documentation {external-link-icon}^]
+
+This is an operator for Kubernetes that provides and manages common objects of the Stackable Data Platform.
+Have a look at the CRD documentation linked above to see the the custom resources that this operator deploys.
