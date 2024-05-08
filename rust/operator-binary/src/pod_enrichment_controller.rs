@@ -25,12 +25,12 @@ struct Ctx {
 pub enum Error {
     #[snafu(display("failed to get {node} for Pod"))]
     GetNode {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
         node: ObjectRef<Node>,
     },
     #[snafu(display("failed to update Pod"))]
     UpdatePod {
-        source: stackable_operator::error::Error,
+        source: stackable_operator::client::Error,
     },
 }
 
