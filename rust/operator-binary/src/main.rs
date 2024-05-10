@@ -1,7 +1,7 @@
 mod pod_enrichment_controller;
 mod restart_controller;
 
-use built_info::CARGO_PKG_VERSION;
+use built_info::PKG_VERSION;
 use futures::pin_mut;
 use stackable_operator::cli::{Command, ProductOperatorRun};
 
@@ -14,8 +14,6 @@ use stackable_operator::CustomResourceExt;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
-    pub const TARGET_PLATFORM: Option<&str> = option_env!("TARGET");
-    pub const CARGO_PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 }
 
 #[derive(Parser)]
@@ -30,9 +28,9 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
         Command::Crd => {
-            AuthenticationClass::print_yaml_schema(CARGO_PKG_VERSION)?;
-            S3Connection::print_yaml_schema(CARGO_PKG_VERSION)?;
-            S3Bucket::print_yaml_schema(CARGO_PKG_VERSION)?;
+            AuthenticationClass::print_yaml_schema(PKG_VERSION)?;
+            S3Connection::print_yaml_schema(PKG_VERSION)?;
+            S3Bucket::print_yaml_schema(PKG_VERSION)?;
         }
         Command::Run(ProductOperatorRun {
             product_config: _,
@@ -48,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
                 crate_description!(),
                 crate_version!(),
                 built_info::GIT_VERSION,
-                built_info::TARGET_PLATFORM.unwrap_or("unknown target"),
+                built_info::TARGET,
                 built_info::BUILT_TIME_UTC,
                 built_info::RUSTC_VERSION,
             );
