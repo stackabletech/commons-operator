@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `stackable-operator` to 0.70.0 ([#267]).
+
+[#267]: https://github.com/stackabletech/commons-operator/pull/267
+
 ## [24.3.0] - 2024-03-20
 
 ### Added
