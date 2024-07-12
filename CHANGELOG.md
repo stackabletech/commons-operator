@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Bump `stackable-operator` to 0.70.0 ([#267]).
+- Bump `stackable-operator` to 0.70.0, and other dependencies ([#267]).
 
 [#267]: https://github.com/stackabletech/commons-operator/pull/267
 
