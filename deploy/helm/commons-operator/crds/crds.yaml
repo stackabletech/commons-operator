@@ -22,7 +22,7 @@ spec:
           description: Auto-generated derived type for AuthenticationClassSpec via `CustomResource`
           properties:
             spec:
-              description: The Stackable Platform uses the AuthenticationClass as a central mechanism to handle user authentication across supported products. The authentication mechanism needs to be configured only in the AuthenticationClass which is then referenced in the product. Multiple different authentication providers are supported. Learn more in the [authentication concept documentation](https://docs.stackable.tech/home/nightly/concepts/authentication) and the [Authentication with OpenLDAP tutorial](https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap).
+              description: The Stackable Platform uses the AuthenticationClass as a central mechanism to handle user authentication across supported products. The authentication mechanism needs to be configured only in the AuthenticationClass which is then referenced in the product. Multiple different authentication providers are supported. Learn more in the [authentication concept documentation](https://docs.stackable.tech/home/24.7/concepts/authentication) and the [Authentication with OpenLDAP tutorial](https://docs.stackable.tech/home/24.7/tutorials/authentication_with_openldap).
               properties:
                 provider:
                   description: Provider used for authentication like LDAP or Kerberos.
@@ -37,14 +37,14 @@ spec:
                         - tls
                   properties:
                     ldap:
-                      description: The [LDAP provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_ldap). There is also the ["Authentication with LDAP" tutorial](https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap) where you can learn to configure Superset and Trino with OpenLDAP.
+                      description: The [LDAP provider](https://docs.stackable.tech/home/24.7/concepts/authentication#_ldap). There is also the ["Authentication with LDAP" tutorial](https://docs.stackable.tech/home/24.7/tutorials/authentication_with_openldap) where you can learn to configure Superset and Trino with OpenLDAP.
                       properties:
                         bindCredentials:
                           description: In case you need a special account for searching the LDAP server you can specify it here.
                           nullable: true
                           properties:
                             scope:
-                              description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
+                              description: '[Scope](https://docs.stackable.tech/home/24.7/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass).'
                               nullable: true
                               properties:
                                 node:
@@ -63,7 +63,7 @@ spec:
                                   type: array
                               type: object
                             secretClass:
-                              description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                              description: '[SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) containing the LDAP bind credentials.'
                               type: string
                           required:
                             - secretClass
@@ -142,7 +142,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
+                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -220,7 +220,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
+                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -239,7 +239,7 @@ spec:
                         - scopes
                       type: object
                     static:
-                      description: The [static provider](https://https://docs.stackable.tech/home/nightly/concepts/authentication#_static) is used to configure a static set of users, identified by username and password.
+                      description: The [static provider](https://https://docs.stackable.tech/home/24.7/concepts/authentication#_static) is used to configure a static set of users, identified by username and password.
                       properties:
                         userCredentialsSecret:
                           description: Secret providing the usernames and passwords. The Secret must contain an entry for every user, with the key being the username and the value the password in plain text. It must be located in the same namespace as the product using it.
@@ -254,10 +254,10 @@ spec:
                         - userCredentialsSecret
                       type: object
                     tls:
-                      description: The [TLS provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_tls). The TLS AuthenticationClass is used when users should authenticate themselves with a TLS certificate.
+                      description: The [TLS provider](https://docs.stackable.tech/home/24.7/concepts/authentication#_tls). The TLS AuthenticationClass is used when users should authenticate themselves with a TLS certificate.
                       properties:
                         clientCertSecretClass:
-                          description: 'See [ADR017: TLS authentication](https://docs.stackable.tech/home/nightly/contributor/adr/adr017-tls_authentication). If `client_cert_secret_class` is not set, the TLS settings may also be used for client authentication. If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) will be used to provision client certificates.'
+                          description: 'See [ADR017: TLS authentication](https://docs.stackable.tech/home/24.7/contributor/adr/adr017-tls_authentication). If `client_cert_secret_class` is not set, the TLS settings may also be used for client authentication. If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) will be used to provision client certificates.'
                           nullable: true
                           type: string
                       type: object
@@ -296,7 +296,7 @@ spec:
           description: Auto-generated derived type for S3ConnectionSpec via `CustomResource`
           properties:
             spec:
-              description: S3 connection definition as a resource. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
+              description: S3 connection definition as a resource. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/24.7/concepts/s3).
               properties:
                 accessStyle:
                   description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html).
@@ -306,11 +306,11 @@ spec:
                   nullable: true
                   type: string
                 credentials:
-                  description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
+                  description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
                   nullable: true
                   properties:
                     scope:
-                      description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
+                      description: '[Scope](https://docs.stackable.tech/home/24.7/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass).'
                       nullable: true
                       properties:
                         node:
@@ -329,7 +329,7 @@ spec:
                           type: array
                       type: object
                     secretClass:
-                      description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                      description: '[SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) containing the LDAP bind credentials.'
                       type: string
                   required:
                     - secretClass
@@ -371,7 +371,7 @@ spec:
                                     - secretClass
                               properties:
                                 secretClass:
-                                  description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
+                                  description: Name of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                   type: string
                                 webPki:
                                   description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
@@ -416,7 +416,7 @@ spec:
           description: Auto-generated derived type for S3BucketSpec via `CustomResource`
           properties:
             spec:
-              description: S3 bucket specification containing the bucket name and an inlined or referenced connection specification. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
+              description: S3 bucket specification containing the bucket name and an inlined or referenced connection specification. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/24.7/concepts/s3).
               properties:
                 bucketName:
                   description: The name of the S3 bucket.
@@ -442,11 +442,11 @@ spec:
                           nullable: true
                           type: string
                         credentials:
-                          description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
+                          description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
                           nullable: true
                           properties:
                             scope:
-                              description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
+                              description: '[Scope](https://docs.stackable.tech/home/24.7/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass).'
                               nullable: true
                               properties:
                                 node:
@@ -465,7 +465,7 @@ spec:
                                   type: array
                               type: object
                             secretClass:
-                              description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                              description: '[SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) containing the LDAP bind credentials.'
                               type: string
                           required:
                             - secretClass
@@ -507,7 +507,7 @@ spec:
                                             - secretClass
                                       properties:
                                         secretClass:
-                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
+                                          description: Name of the [SecretClass](https://docs.stackable.tech/home/24.7/secret-operator/secretclass) which will provide the CA certificate. Note that a SecretClass does not need to have a key but can also work with just a CA certificate, so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
                                         webPki:
                                           description: Use TLS and the CA certificates trusted by the common web browsers to verify the server. This can be useful when you e.g. use public AWS S3 or other public available services.
