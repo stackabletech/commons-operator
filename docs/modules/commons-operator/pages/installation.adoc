@@ -1,9 +1,5 @@
 = Installation
-
-There are two ways to run the Stackable Commons Operator:
-
-. Helm managed Docker container deployment on Kubernetes
-. Build from source
+:description: Install the Stackable Commons Operator with either stackablectl or Helm.
 
 == Prerequisites
 
@@ -18,36 +14,51 @@ Resource sizing depends on cluster type(s), usage and scope, but as a starting p
 * 0.2 cores (e.g. i5 or similar)
 * 256MB RAM
 
-== Helm
-Helm allows you to download and deploy Stackable operators on Kubernetes and is by far the easiest installation method.
+== Installation
+
+There are two ways to deploy the Commons operator into your Kubernetes cluster.
+
+. Using xref:management:stackablectl:index.adoc[].
+. Using Helm.
+
+[tabs]
+====
+stackablectl::
++
+--
+`stackablectl` is the command line tool to interact with Stackable operators and our recommended way to install Operators.
+Follow the xref:management:stackablectl:installation.adoc[installation steps] for your platform.
+
+After you have installed `stackablectl`, use it to install the Commons Operator:
+
+[source,console]
+$ stackablectl operator install commons=24.7.0
+
+The tool will show:
+
+[source]
+Installed commons=24.7.0 operator
+
+TIP: Consult the xref:management:stackablectl:quickstart.adoc[] to learn more about how to use `stackablectl`. For
+example, you can use the `--cluster kind` flag to create a Kubernetes cluster with link:https://kind.sigs.k8s.io/[kind].
+--
+
+Helm::
++
+--
+Helm allows you to download and deploy Stackable operators on Kubernetes.
 First ensure that you have installed the Stackable Operators Helm repository:
 
 [source,console]
-----
-$ helm repo add stackable https://repo.stackable.tech/repository/helm-stable/
-----
+$ helm repo add stackable \
+  https://repo.stackable.tech/repository/helm-stable/
 
 Then install the Stackable Commons Operator
 
 [source,console]
-----
-$ helm install commons-operator stackable/commons-operator
-----
+$ helm install --wait commons-operator \
+  stackable-stable/commons-operator --version 24.7.0
 
 Helm will deploy the operator in Kubernetes and apply the CRDs.
-
-== Building the operator from source
-
-After cloning the commons-operator repository you can use the following command to apply the CRDs:
-
-[source,console]
-----
-$ cargo run -- crd | kubectl apply -f -
-----
-
-Use the following command to run the operator:
-
-[source,console]
-----
-$ cargo run -- run
-----
+--
+====
