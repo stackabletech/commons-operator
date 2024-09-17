@@ -2,9 +2,8 @@
 
 There are two ways to run the Stackable Commons Operator:
 
-1. Helm managed Docker container deployment on Kubernetes
-
-2. Build from source
+. Helm managed Docker container deployment on Kubernetes
+. Build from source
 
 == Prerequisites
 
@@ -20,7 +19,8 @@ Resource sizing depends on cluster type(s), usage and scope, but as a starting p
 * 256MB RAM
 
 == Helm
-Helm allows you to download and deploy Stackable operators on Kubernetes and is by far the easiest installation method. First ensure that you have installed the Stackable Operators Helm repository:
+Helm allows you to download and deploy Stackable operators on Kubernetes and is by far the easiest installation method.
+First ensure that you have installed the Stackable Operators Helm repository:
 
 [source,console]
 ----
@@ -38,7 +38,7 @@ Helm will deploy the operator in Kubernetes and apply the CRDs.
 
 == Building the operator from source
 
-After cloning the commons-operator repo you can use the following command to apply the CRDs:
+After cloning the commons-operator repository you can use the following command to apply the CRDs:
 
 [source,console]
 ----

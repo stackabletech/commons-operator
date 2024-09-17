@@ -1,4 +1,5 @@
 = Stackable Commons Operator
+:description: Learn about shared objects (AuthenticationClass, S3Bucket and S3Connection) and shared functionality (Pod enrichting, restarting) on the Stackable Data Platform.
 :github: https://github.com/stackabletech/commons-operator/
 :crd: {crd-docs-base-url}/commons-operator/{crd-docs-version}/
 
@@ -6,5 +7,19 @@
 * {github}[GitHub {external-link-icon}^]
 * {crd}[CRD documentation {external-link-icon}^]
 
-This is an operator for Kubernetes that provides and manages common objects of the Stackable Data Platform.
-Have a look at the CRD documentation linked above to see the the custom resources that this operator deploys.
+Unlike most other operators on the Stackable Data Platform, the Stackable commons operator does not manage any particular Stacklet, but rather provides shared functionality and resource definitions that are used by the other operators.
+
+== Common resources
+
+The _commons_ Kubernetes operator for the Stackable Data Platform provides and manages resources that are not tied to any particular data product, but usually shared among multiple products.
+These are the _AuthenticationClass_ for configuring authentication mechanisms, and the _S3Bucket_ and _S3Connection_ for configuring S3 object storage.
+Usually all tools in a data platform that require authentication will be configured to use the same authentication mechanism, so the AuthenticationClass provides a single configuration point for authentication methods, which can then be referenced in multiple data products.
+Likewise, the S3 related objects provide single configuration points for S3 storage, which is then referenced in multiple products.
+
+Because these objects are used throughout the whole platform, the documentation is also mostly found at the platform level.
+Read the xref:concepts:authentication.adoc[authentication] concepts page to learn about the AuthenticationClass and learn about S3 on the xref:concepts:s3.adoc[S3 resources] page.
+You can also find the full CRD refererence documentation for all objects linked above.
+
+== Shared functionality: Pod enriching and restarting
+
+The commons operator also xref:pod-enrichment.adoc[adds additional information to Pods] which would otherwise have to be inferred and takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in Pods that don't support hot reloading.

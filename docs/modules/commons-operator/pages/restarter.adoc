@@ -1,29 +1,26 @@
 = Restarter
+:description: Automatically restart Pods or StatefulSets using Stackable Commons Operator based on expiration dates or stale configurations.
 
-The Stackable Commons Operator can automatically restart `Pod` objects based on certain criteria. This can be applied to
-either the `Pod` or certain controller objects (such as `StatefulSet`).
+The Stackable Commons Operator can automatically restart Pod objects based on certain criteria.
+This can be applied to either the Pod or certain controller objects (such as StatefulSet).
 
-== `Pod`
+== Pod
 
-Pods are evicted when any of their restart criteria (listed below) expire, with the expectation that their owning controller
-is then responsible for restarting them.
+Pods are evicted when any of their restart criteria (listed below) expire, with the expectation that their owning controller is then responsible for restarting them.
 
-Because they are evicted rather than deleted, this process should respect `PodDisruptionBudget` constraints, allowing users
-to ensure that clusters are restarted gracefully.
+Because they are evicted rather than deleted, this process should respect PodDisruptionBudget constraints, allowing users to ensure that clusters are restarted gracefully.
 
 === Expiration date
 
 Annotation:: `restarter.stackable.tech/expires-at.\{tag\}`
 
-Pods can be configured to expire at a certain point in time. In this case, the `Pod` should have the annotation
-`restarter.stackable.tech/expires-at.\{tag\}` set to a datetime formatted according to RFC 3339 (such as
-`"2022-04-21T13:24:15.225774724+00:00"`).
+Pods can be configured to expire at a certain point in time.
+In this case, the Pod should have the annotation `restarter.stackable.tech/expires-at.\{tag\}` set to a datetime formatted according to RFC 3339 (such as `"2022-04-21T13:24:15.225774724+00:00"`).
 `\{tag\}` should be a deterministic but unique ID identifying the reason for the expiry.
 
-Multiple `expires-at` annotations can be set on the same `Pod`, in which case the *earliest* expiration datetime
-takes precedence.
+Multiple `expires-at` annotations can be set on the same Pod, in which case the *earliest* expiration datetime takes precedence.
 
-== `StatefulSet`
+== StatefulSet
 
 StatefulSets are rolling-restarted when any of their restart criteria (listed below) expire.
 
@@ -31,5 +28,5 @@ StatefulSets are rolling-restarted when any of their restart criteria (listed be
 
 Label:: `restarter.stackable.tech/enabled`
 
-StatefulSets can be configured to restart when any referenced configuration object (`ConfigMap` or `Secret`) changes.
-To enable this, set the `restarter.stackable.tech/enabled` label on the `StatefulSet` to `true`.
+StatefulSets can be configured to restart when any referenced configuration object (ConfigMap or Secret) changes.
+To enable this, set the `restarter.stackable.tech/enabled` label on the StatefulSet to `true`.
