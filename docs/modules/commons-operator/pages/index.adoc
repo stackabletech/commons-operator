@@ -20,6 +20,6 @@ Because these objects are used throughout the whole platform, the documentation 
 Read the xref:concepts:authentication.adoc[authentication] concepts page to learn about the AuthenticationClass and learn about S3 on the xref:concepts:s3.adoc[S3 resources] page.
 You can also find the full CRD refererence documentation for all objects linked above.
 
-== Shared functionality: Pod enriching and restarting
+== Shared functionality
 
 The commons operator also xref:pod-enrichment.adoc[adds additional information to Pods] which would otherwise have to be inferred and takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in Pods that don't support hot reloading.
