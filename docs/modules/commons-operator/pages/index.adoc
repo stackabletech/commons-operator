@@ -22,4 +22,5 @@ You can also find the full CRD refererence documentation for all objects linked 
 
 == Shared functionality
 
-The commons operator also xref:pod-enrichment.adoc[adds additional information to Pods] which would otherwise have to be inferred and takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in Pods that don't support hot reloading.
+The commons operator implements functionality that is shared by all other Stackable operators.
+For example, it  xref:pod-enrichment.adoc[adds additional information to Pods] which would otherwise have to be inferred and takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in products that don't support hot reloading.
