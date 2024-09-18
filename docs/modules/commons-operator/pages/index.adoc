@@ -9,7 +9,7 @@
 
 Unlike most other operators on the Stackable Data Platform, the Stackable commons operator does not manage any particular Stacklet, but rather provides shared functionality and resource definitions that are used by the other operators.
 
-== Common resources
+== Shared resources
 
 The _commons_ Kubernetes operator for the Stackable Data Platform provides and manages resources that are not tied to any particular data product, but usually shared among multiple products.
 These are the _AuthenticationClass_ for configuring authentication mechanisms, and the _S3Bucket_ and _S3Connection_ for configuring S3 object storage.
