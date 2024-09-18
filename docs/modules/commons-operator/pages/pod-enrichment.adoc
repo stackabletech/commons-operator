@@ -1,5 +1,5 @@
 = Pod enricher
-:description: Automatically enrich Pods with Node address info using Stackable Commons Operator by enabling the enrichment label.
+:description: Use Labels to instruct the Stackable Commons Operator to enrich Pods with Kubernetes node addresses
 
 The Stackable Commons Operator automatically adds commonly used information to Pod objects, which would otherwise have to be inferred by traversing the Kubernetes object graph.
 
