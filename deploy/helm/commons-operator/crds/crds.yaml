@@ -47,6 +47,12 @@ spec:
                               description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
                               nullable: true
                               properties:
+                                listenerVolumes:
+                                  default: []
+                                  description: The listener volume scope allows Node and Service scopes to be inferred from the applicable listeners. This must correspond to Volume names in the Pod that mount Listeners.
+                                  items:
+                                    type: string
+                                  type: array
                                 node:
                                   default: false
                                   description: The node scope is resolved to the name of the Kubernetes Node object that the Pod is running on. This will typically be the DNS name of the node.
@@ -69,7 +75,7 @@ spec:
                             - secretClass
                           type: object
                         hostname:
-                          description: 'Hostname of the LDAP server, for example: `my.ldap.server`.'
+                          description: 'Host of the LDAP server, for example: `my.ldap.server` or `127.0.0.1`.'
                           type: string
                         ldapFieldNames:
                           default:
@@ -162,7 +168,7 @@ spec:
                       description: The OIDC provider can be used to configure OpenID Connect.
                       properties:
                         hostname:
-                          description: Hostname of the identity provider, e.g. `my.keycloak.corp`.
+                          description: Host of the identity provider, e.g. `my.keycloak.corp` or `127.0.0.1`.
                           type: string
                         port:
                           description: Port of the identity provider. If TLS is used defaults to 443, otherwise to 80.
@@ -299,11 +305,11 @@ spec:
               description: S3 connection definition as a resource. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
               properties:
                 accessStyle:
+                  default: VirtualHosted
                   description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html).
                   enum:
                     - Path
                     - VirtualHosted
-                  nullable: true
                   type: string
                 credentials:
                   description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
@@ -313,6 +319,12 @@ spec:
                       description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
                       nullable: true
                       properties:
+                        listenerVolumes:
+                          default: []
+                          description: The listener volume scope allows Node and Service scopes to be inferred from the applicable listeners. This must correspond to Volume names in the Pod that mount Listeners.
+                          items:
+                            type: string
+                          type: array
                         node:
                           default: false
                           description: The node scope is resolved to the name of the Kubernetes Node object that the Pod is running on. This will typically be the DNS name of the node.
@@ -335,8 +347,7 @@ spec:
                     - secretClass
                   type: object
                 host:
-                  description: 'Hostname of the S3 server without any protocol or port. For example: `west1.my-cloud.com`.'
-                  nullable: true
+                  description: 'Host of the S3 server without any protocol or port. For example: `west1.my-cloud.com`.'
                   type: string
                 port:
                   description: Port the S3 server listens on. If not specified the product will determine the port to use.
@@ -345,7 +356,7 @@ spec:
                   nullable: true
                   type: integer
                 tls:
-                  description: If you want to use TLS when talking to S3 you can enable TLS encrypted communication with this setting.
+                  description: Use a TLS connection. If not specified no TLS will be used.
                   nullable: true
                   properties:
                     verification:
@@ -384,6 +395,8 @@ spec:
                   required:
                     - verification
                   type: object
+              required:
+                - host
               type: object
           required:
             - spec
@@ -420,11 +433,9 @@ spec:
               properties:
                 bucketName:
                   description: The name of the S3 bucket.
-                  nullable: true
                   type: string
                 connection:
                   description: The definition of an S3 connection, either inline or as a reference.
-                  nullable: true
                   oneOf:
                     - required:
                         - inline
@@ -432,14 +443,14 @@ spec:
                         - reference
                   properties:
                     inline:
-                      description: Inline definition of an S3 connection.
+                      description: S3 connection definition as a resource. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
                       properties:
                         accessStyle:
+                          default: VirtualHosted
                           description: Which access style to use. Defaults to virtual hosted-style as most of the data products out there. Have a look at the [AWS documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/VirtualHosting.html).
                           enum:
                             - Path
                             - VirtualHosted
-                          nullable: true
                           type: string
                         credentials:
                           description: If the S3 uses authentication you have to specify you S3 credentials. In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing `accessKey` and `secretKey` is sufficient.
@@ -449,6 +460,12 @@ spec:
                               description: '[Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).'
                               nullable: true
                               properties:
+                                listenerVolumes:
+                                  default: []
+                                  description: The listener volume scope allows Node and Service scopes to be inferred from the applicable listeners. This must correspond to Volume names in the Pod that mount Listeners.
+                                  items:
+                                    type: string
+                                  type: array
                                 node:
                                   default: false
                                   description: The node scope is resolved to the name of the Kubernetes Node object that the Pod is running on. This will typically be the DNS name of the node.
@@ -471,8 +488,7 @@ spec:
                             - secretClass
                           type: object
                         host:
-                          description: 'Hostname of the S3 server without any protocol or port. For example: `west1.my-cloud.com`.'
-                          nullable: true
+                          description: 'Host of the S3 server without any protocol or port. For example: `west1.my-cloud.com`.'
                           type: string
                         port:
                           description: Port the S3 server listens on. If not specified the product will determine the port to use.
@@ -481,7 +497,7 @@ spec:
                           nullable: true
                           type: integer
                         tls:
-                          description: If you want to use TLS when talking to S3 you can enable TLS encrypted communication with this setting.
+                          description: Use a TLS connection. If not specified no TLS will be used.
                           nullable: true
                           properties:
                             verification:
@@ -520,11 +536,15 @@ spec:
                           required:
                             - verification
                           type: object
+                      required:
+                        - host
                       type: object
                     reference:
-                      description: A reference to an S3Connection resource.
                       type: string
                   type: object
+              required:
+                - bucketName
+                - connection
               type: object
           required:
             - spec
