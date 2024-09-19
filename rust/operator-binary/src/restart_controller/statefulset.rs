@@ -35,13 +35,15 @@ struct Ctx {
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 enum Error {
-    #[snafu(display("failed to patch object {}", obj_ref))]
+    #[snafu(display("failed to patch object {obj_ref}"))]
     PatchFailed {
         source: kube::Error,
         obj_ref: Box<ObjectRef<DynamicObject>>,
     },
+
     #[snafu(display("configmaps were not yet loaded"))]
     ConfigMapsUninitialized,
+
     #[snafu(display("secrets were not yet loaded"))]
     SecretsUninitialized,
 }
@@ -180,23 +182,22 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error
                 pod_spec,
                 |volume| {
                     Some(ObjectRef::<ConfigMap>::new(
-                        volume.config_map.as_ref()?.name.as_deref()?,
+                        &volume.config_map.as_ref()?.name,
                     ))
                 },
                 |env_var| {
                     Some(ObjectRef::<ConfigMap>::new(
-                        env_var
+                        &env_var
                             .value_from
                             .as_ref()?
                             .config_map_key_ref
                             .as_ref()?
-                            .name
-                            .as_deref()?,
+                            .name,
                     ))
                 },
                 |env_from| {
                     Some(ObjectRef::<ConfigMap>::new(
-                        env_from.config_map_ref.as_ref()?.name.as_deref()?,
+                        &env_from.config_map_ref.as_ref()?.name,
                     ))
                 },
             )
@@ -230,18 +231,12 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error
                 },
                 |env_var| {
                     Some(ObjectRef::<Secret>::new(
-                        env_var
-                            .value_from
-                            .as_ref()?
-                            .secret_key_ref
-                            .as_ref()?
-                            .name
-                            .as_deref()?,
+                        &env_var.value_from.as_ref()?.secret_key_ref.as_ref()?.name,
                     ))
                 },
                 |env_from| {
                     Some(ObjectRef::<Secret>::new(
-                        env_from.secret_ref.as_ref()?.name.as_deref()?,
+                        &env_from.secret_ref.as_ref()?.name,
                     ))
                 },
             )
