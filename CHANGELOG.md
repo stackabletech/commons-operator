@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING: The fields `bucketName`, `connection` and `host` on `S3BucketSpec`, `InlinedS3BucketSpec` and `S3ConnectionSpec` are now mandatory. Previously operators errored out in case these fields where missing ([#283]).
+
+[#283]: https://github.com/stackabletech/commons-operator/pull/283
+
 ## [24.7.0] - 2024-07-24
 
 ### Changed
