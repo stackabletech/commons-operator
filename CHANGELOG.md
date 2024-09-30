@@ -4,21 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING: Bump `stackable-operator` to 0.78.0 which includes a new `AuthenticationClassProvider` member for Kerberos. This will need to be considered when validating authentication providers ([#285]).
+
 ### Fixed
 
 - BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory. Previously operators errored out in case these fields where missing ([#283]).
 
 [#283]: https://github.com/stackabletech/commons-operator/pull/283
+[#285]: https://github.com/stackabletech/commons-operator/pull/285
 
 ## [24.7.0] - 2024-07-24
 
 ### Changed
 
 - Bump `stackable-operator` to 0.70.0, and other dependencies ([#267]).
-- BREAKING: Bump `stackable-operator` to 0.78.0 which includes a new `AuthenticationClassProvider` member for Kerberos. This will need to be considered when validating authentication providers ([#285]).
 
 [#267]: https://github.com/stackabletech/commons-operator/pull/267
-[#285]: https://github.com/stackabletech/commons-operator/pull/285
 
 ## [24.3.0] - 2024-03-20
 
