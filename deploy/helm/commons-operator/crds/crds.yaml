@@ -35,7 +35,18 @@ spec:
                         - oidc
                     - required:
                         - tls
+                    - required:
+                        - kerberos
                   properties:
+                    kerberos:
+                      description: The [Kerberos provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_kerberos). The Kerberos AuthenticationClass is used when users should authenticate themselves via Kerberos.
+                      properties:
+                        kerberosSecretClass:
+                          description: Mandatory SecretClass used to obtain keytabs.
+                          type: string
+                      required:
+                        - kerberosSecretClass
+                      type: object
                     ldap:
                       description: The [LDAP provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_ldap). There is also the ["Authentication with LDAP" tutorial](https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap) where you can learn to configure Superset and Trino with OpenLDAP.
                       properties:
