@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
                 built_info::RUSTC_VERSION,
             );
 
-            let client = stackable_operator::client::create_client(Some(
+            let client = stackable_operator::client::initialize_operator(Some(
                 "commons.stackable.tech".to_string(),
             ))
             .await?;
