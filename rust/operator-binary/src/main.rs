@@ -36,6 +36,7 @@ async fn main() -> anyhow::Result<()> {
             product_config: _,
             watch_namespace,
             tracing_target,
+            cluster_info_opts,
         }) => {
             stackable_operator::logging::initialize_logging(
                 "COMMONS_OPERATOR_LOG",
@@ -51,9 +52,10 @@ async fn main() -> anyhow::Result<()> {
                 built_info::RUSTC_VERSION,
             );
 
-            let client = stackable_operator::client::initialize_operator(Some(
-                "commons.stackable.tech".to_string(),
-            ))
+            let client = stackable_operator::client::initialize_operator(
+                Some("commons.stackable.tech".to_string()),
+                &cluster_info_opts,
+            )
             .await?;
 
             let sts_restart_controller =
