@@ -11,9 +11,12 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - BREAKING: The fields `connection` and `host` on `S3Connection` as well as `bucketName` on `S3Bucket`are now mandatory. Previously operators errored out in case these fields where missing ([#283]).
+- Failing to parse one `ZookeeperCluster`/`ZookeeperZnode` should no longer cause the whole operator to stop functioning ([#293]).
+- The StatefulSet restarter service now only retrieves metadata for ConfigMaps and Secrets, rather than full objects ([#293]).
 
 [#283]: https://github.com/stackabletech/commons-operator/pull/283
 [#285]: https://github.com/stackabletech/commons-operator/pull/285
+[#293]: https://github.com/stackabletech/commons-operator/pull/293
 
 ## [24.7.0] - 2024-07-24
 
