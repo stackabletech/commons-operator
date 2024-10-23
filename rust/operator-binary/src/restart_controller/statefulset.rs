@@ -18,7 +18,9 @@ use stackable_operator::kube::runtime::controller::{
     trigger_self, trigger_with, Action, ReconcileRequest,
 };
 use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
-use stackable_operator::kube::runtime::{applier, reflector, watcher, Config, WatchStreamExt};
+use stackable_operator::kube::runtime::{
+    applier, metadata_watcher, reflector, watcher, Config, WatchStreamExt,
+};
 use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
 use stackable_operator::namespace::WatchNamespace;
@@ -70,11 +72,11 @@ impl ReconcilerError for Error {
 
 pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(client);
-    let cms = watch_namespace.get_api::<PartialObjectMeta<ConfigMap>>(client);
-    let secrets = watch_namespace.get_api::<PartialObjectMeta<Secret>>(client);
+    let cms = watch_namespace.get_api::<ConfigMap>(client);
+    let secrets = watch_namespace.get_api::<Secret>(client);
     let sts_store = reflector::store::Writer::<DeserializeGuard<StatefulSet>>::new(());
-    let cm_store = reflector::store::Writer::new(());
-    let secret_store = reflector::store::Writer::new(());
+    let cm_store = reflector::store::Writer::<PartialObjectMeta<ConfigMap>>::new(());
+    let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
     let cms_inited = Arc::new(AtomicBool::from(false));
     let secrets_inited = Arc::new(AtomicBool::from(false));
 
@@ -92,17 +94,18 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         stream::select(
             stream::select(
                 trigger_all(
-                    reflector(cm_store, watcher(cms, watcher::Config::default()))
+                    reflector(cm_store, metadata_watcher(cms, watcher::Config::default()))
                         .inspect(|_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst))
                         .touched_objects(),
                     sts_store.as_reader(),
                 ),
                 trigger_all(
-                    reflector(secret_store, watcher(secrets, watcher::Config::default()))
-                        .inspect(|_| {
-                            secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst)
-                        })
-                        .touched_objects(),
+                    reflector(
+                        secret_store,
+                        metadata_watcher(secrets, watcher::Config::default()),
+                    )
+                    .inspect(|_| secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst))
+                    .touched_objects(),
                     sts_store.as_reader(),
                 ),
             ),
