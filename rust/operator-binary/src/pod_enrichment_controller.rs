@@ -5,8 +5,9 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     k8s_openapi::api::core::v1::{Node, Pod},
     kube::{
-        core::ObjectMeta,
+        core::{error_boundary, DeserializeGuard, ObjectMeta},
         runtime::{controller, reflector::ObjectRef, watcher, Controller},
+        Resource,
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
     namespace::WatchNamespace,
@@ -23,11 +24,17 @@ struct Ctx {
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 pub enum Error {
+    #[snafu(display("Pod object is invalid"))]
+    InvalidPod {
+        source: error_boundary::InvalidObject,
+    },
+
     #[snafu(display("failed to get {node} for Pod"))]
     GetNode {
         source: stackable_operator::client::Error,
         node: ObjectRef<Node>,
     },
+
     #[snafu(display("failed to update Pod"))]
     UpdatePod {
         source: stackable_operator::client::Error,
@@ -41,6 +48,7 @@ impl ReconcilerError for Error {
 
     fn secondary_object(&self) -> Option<ObjectRef<stackable_operator::kube::core::DynamicObject>> {
         match self {
+            Error::InvalidPod { source: _ } => None,
             Error::GetNode { node, .. } => Some(node.clone().erase()),
             Error::UpdatePod { source: _ } => None,
         }
@@ -49,20 +57,23 @@ impl ReconcilerError for Error {
 
 pub async fn start(client: &stackable_operator::client::Client, watch_namespace: &WatchNamespace) {
     let controller = Controller::new(
-        watch_namespace.get_api::<Pod>(client),
+        watch_namespace.get_api::<DeserializeGuard<Pod>>(client),
         watcher::Config::default().labels("enrichment.stackable.tech/enabled=true"),
     );
     let pods = controller.store();
     controller
         .watches(
-            client.get_all_api::<Node>(),
+            client.get_all_api::<DeserializeGuard<Node>>(),
             watcher::Config::default(),
             move |node| {
                 pods.state()
                     .into_iter()
                     .filter(move |pod| {
+                        let Ok(pod) = &pod.0 else {
+                            return false;
+                        };
                         pod.spec.as_ref().and_then(|s| s.node_name.as_deref())
-                            == node.metadata.name.as_deref()
+                            == node.meta().name.as_deref()
                     })
                     .map(|pod| ObjectRef::from_obj(&*pod))
             },
@@ -86,7 +97,17 @@ pub enum NodeAddressType {
     InternalIP,
 }
 
-async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<controller::Action, Error> {
+async fn reconcile(
+    pod: Arc<DeserializeGuard<Pod>>,
+    ctx: Arc<Ctx>,
+) -> Result<controller::Action, Error> {
+    tracing::info!("Starting reconcile");
+    let pod = pod
+        .0
+        .as_ref()
+        .map_err(error_boundary::InvalidObject::clone)
+        .context(InvalidPodSnafu)?;
+
     let node_name = pod.spec.as_ref().and_then(|s| s.node_name.as_deref());
     let node = if let Some(node_name) = node_name {
         ctx.client
@@ -133,6 +154,15 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<controller::Action, E
     Ok(controller::Action::await_change())
 }
 
-fn error_policy(_obj: Arc<Pod>, _error: &Error, _ctx: Arc<Ctx>) -> controller::Action {
-    controller::Action::requeue(Duration::from_secs(5))
+fn error_policy(
+    _obj: Arc<DeserializeGuard<Pod>>,
+    error: &Error,
+    _ctx: Arc<Ctx>,
+) -> controller::Action {
+    match error {
+        // root object is invalid, will be requeued when modified anyway
+        Error::InvalidPod { .. } => controller::Action::await_change(),
+
+        _ => controller::Action::requeue(Duration::from_secs(5)),
+    }
 }

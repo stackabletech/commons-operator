@@ -10,7 +10,7 @@ use stackable_operator::{
     },
     kube::{
         self,
-        api::EvictParams,
+        api::{EvictParams, PartialObjectMeta},
         core::DynamicObject,
         runtime::{controller::Action, reflector::ObjectRef, watcher, Controller},
     },
@@ -63,7 +63,7 @@ impl ReconcilerError for Error {
 
 pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     let controller = Controller::new(
-        watch_namespace.get_api::<Pod>(client),
+        watch_namespace.get_api::<PartialObjectMeta<Pod>>(client),
         watcher::Config::default(),
     );
     controller
@@ -80,7 +80,7 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         .await;
 }
 
-async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
+async fn reconcile(pod: Arc<PartialObjectMeta<Pod>>, ctx: Arc<Ctx>) -> Result<Action, Error> {
     tracing::info!("Starting reconciliation ..");
     if pod.metadata.deletion_timestamp.is_some() {
         // Object is already being deleted, no point trying again
@@ -163,6 +163,6 @@ async fn reconcile(pod: Arc<Pod>, ctx: Arc<Ctx>) -> Result<Action, Error> {
     }
 }
 
-fn error_policy(_obj: Arc<Pod>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
+fn error_policy(_obj: Arc<PartialObjectMeta<Pod>>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
