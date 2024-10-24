@@ -12,13 +12,15 @@ use stackable_operator::k8s_openapi::api::core::v1::{
     ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume,
 };
 use stackable_operator::kube;
-use stackable_operator::kube::api::{Patch, PatchParams};
-use stackable_operator::kube::core::DynamicObject;
+use stackable_operator::kube::api::{PartialObjectMeta, Patch, PatchParams};
+use stackable_operator::kube::core::{error_boundary, DeserializeGuard, DynamicObject};
 use stackable_operator::kube::runtime::controller::{
     trigger_self, trigger_with, Action, ReconcileRequest,
 };
 use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
-use stackable_operator::kube::runtime::{applier, reflector, watcher, Config, WatchStreamExt};
+use stackable_operator::kube::runtime::{
+    applier, metadata_watcher, reflector, watcher, Config, WatchStreamExt,
+};
 use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
 use stackable_operator::namespace::WatchNamespace;
@@ -26,15 +28,20 @@ use strum::{EnumDiscriminants, IntoStaticStr};
 
 struct Ctx {
     kube: kube::Client,
-    cms: Store<ConfigMap>,
+    cms: Store<PartialObjectMeta<ConfigMap>>,
     cms_inited: Arc<AtomicBool>,
-    secrets: Store<Secret>,
+    secrets: Store<PartialObjectMeta<Secret>>,
     secrets_inited: Arc<AtomicBool>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
 enum Error {
+    #[snafu(display("StatefulSet object is invalid"))]
+    InvalidStatefulSet {
+        source: error_boundary::InvalidObject,
+    },
+
     #[snafu(display("failed to patch object {obj_ref}"))]
     PatchFailed {
         source: kube::Error,
@@ -55,6 +62,7 @@ impl ReconcilerError for Error {
 
     fn secondary_object(&self) -> Option<ObjectRef<DynamicObject>> {
         match self {
+            Error::InvalidStatefulSet { source: _ } => None,
             Error::PatchFailed { obj_ref, .. } => Some(*obj_ref.clone()),
             Error::ConfigMapsUninitialized => None,
             Error::SecretsUninitialized => None,
@@ -63,12 +71,12 @@ impl ReconcilerError for Error {
 }
 
 pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
-    let stses = watch_namespace.get_api::<StatefulSet>(client);
+    let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(client);
     let cms = watch_namespace.get_api::<ConfigMap>(client);
     let secrets = watch_namespace.get_api::<Secret>(client);
-    let sts_store = reflector::store::Writer::new(());
-    let cm_store = reflector::store::Writer::new(());
-    let secret_store = reflector::store::Writer::new(());
+    let sts_store = reflector::store::Writer::<DeserializeGuard<StatefulSet>>::new(());
+    let cm_store = reflector::store::Writer::<PartialObjectMeta<ConfigMap>>::new(());
+    let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
     let cms_inited = Arc::new(AtomicBool::from(false));
     let secrets_inited = Arc::new(AtomicBool::from(false));
 
@@ -86,17 +94,18 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         stream::select(
             stream::select(
                 trigger_all(
-                    reflector(cm_store, watcher(cms, watcher::Config::default()))
+                    reflector(cm_store, metadata_watcher(cms, watcher::Config::default()))
                         .inspect(|_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst))
                         .touched_objects(),
                     sts_store.as_reader(),
                 ),
                 trigger_all(
-                    reflector(secret_store, watcher(secrets, watcher::Config::default()))
-                        .inspect(|_| {
-                            secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst)
-                        })
-                        .touched_objects(),
+                    reflector(
+                        secret_store,
+                        metadata_watcher(secrets, watcher::Config::default()),
+                    )
+                    .inspect(|_| secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst))
+                    .touched_objects(),
                     sts_store.as_reader(),
                 ),
             ),
@@ -161,7 +170,17 @@ fn find_pod_refs<'a, K: Resource + 'a>(
         .chain(container_env_from_refs)
 }
 
-async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error> {
+async fn reconcile(
+    sts: Arc<DeserializeGuard<StatefulSet>>,
+    ctx: Arc<Ctx>,
+) -> Result<Action, Error> {
+    tracing::info!("Starting reconcile");
+    let sts = sts
+        .0
+        .as_ref()
+        .map_err(error_boundary::InvalidObject::clone)
+        .context(InvalidStatefulSetSnafu)?;
+
     if !ctx.cms_inited.load(std::sync::atomic::Ordering::SeqCst) {
         return ConfigMapsUninitializedSnafu.fail();
     }
@@ -181,12 +200,12 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error
             find_pod_refs(
                 pod_spec,
                 |volume| {
-                    Some(ObjectRef::<ConfigMap>::new(
+                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
                         &volume.config_map.as_ref()?.name,
                     ))
                 },
                 |env_var| {
-                    Some(ObjectRef::<ConfigMap>::new(
+                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
                         &env_var
                             .value_from
                             .as_ref()?
@@ -196,7 +215,7 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error
                     ))
                 },
                 |env_from| {
-                    Some(ObjectRef::<ConfigMap>::new(
+                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
                         &env_from.config_map_ref.as_ref()?.name,
                     ))
                 },
@@ -225,17 +244,17 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error
             find_pod_refs(
                 pod_spec,
                 |volume| {
-                    Some(ObjectRef::<Secret>::new(
+                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
                         volume.secret.as_ref()?.secret_name.as_deref()?,
                     ))
                 },
                 |env_var| {
-                    Some(ObjectRef::<Secret>::new(
+                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
                         &env_var.value_from.as_ref()?.secret_key_ref.as_ref()?.name,
                     ))
                 },
                 |env_from| {
-                    Some(ObjectRef::<Secret>::new(
+                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
                         &env_from.secret_ref.as_ref()?.name,
                     ))
                 },
@@ -290,11 +309,16 @@ async fn reconcile(sts: Arc<StatefulSet>, ctx: Arc<Ctx>) -> Result<Action, Error
         )
         .await
         .context(PatchFailedSnafu {
-            obj_ref: ObjectRef::from_obj(sts.as_ref()).erase(),
+            obj_ref: ObjectRef::from_obj(sts).erase(),
         })?;
     Ok(Action::await_change())
 }
 
-fn error_policy(_obj: Arc<StatefulSet>, _error: &Error, _ctx: Arc<Ctx>) -> Action {
-    Action::requeue(Duration::from_secs(5))
+fn error_policy(_obj: Arc<DeserializeGuard<StatefulSet>>, error: &Error, _ctx: Arc<Ctx>) -> Action {
+    match error {
+        // root object is invalid, will be requeued when modified anyway
+        Error::InvalidStatefulSet { .. } => Action::await_change(),
+
+        _ => Action::requeue(Duration::from_secs(5)),
+    }
 }
