@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- The operator can now run on Kubernetes clusters using a non-default cluster domain.
+  Use the env var `KUBERNETES_CLUSTER_DOMAIN` or the operator Helm chart property `kubernetesClusterDomain` to set a non-default cluster domain ([#290]).
+
 ### Changed
 
 - BREAKING: Bump `stackable-operator` to 0.78.0 which includes a new `AuthenticationClassProvider` member for Kerberos. This will need to be considered when validating authentication providers ([#285]).
@@ -16,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
 [#283]: https://github.com/stackabletech/commons-operator/pull/283
 [#285]: https://github.com/stackabletech/commons-operator/pull/285
+[#290]: https://github.com/stackabletech/commons-operator/pull/290
 [#293]: https://github.com/stackabletech/commons-operator/pull/293
 
 ## [24.7.0] - 2024-07-24
