@@ -1,3 +1,5 @@
+// Deprecated for removal, see https://github.com/stackabletech/commons-operator/issues/292
+
 use std::{collections::BTreeMap, str::FromStr, sync::Arc, time::Duration};
 
 use futures::StreamExt;
