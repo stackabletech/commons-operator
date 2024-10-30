@@ -1,6 +1,8 @@
 = Pod enricher
 :description: Use Labels to instruct the Stackable Commons Operator to enrich Pods with Kubernetes node addresses
 
+WARNING: The pod enricher is deprecated as of the Stackable Data Platform 24.11, and will be removed in the next release. For more information, see https://github.com/stackabletech/commons-operator/issues/292[issue #292].
+
 The Stackable Commons Operator automatically adds commonly used information to Pod objects, which would otherwise have to be inferred by traversing the Kubernetes object graph.
 
 == Usage
