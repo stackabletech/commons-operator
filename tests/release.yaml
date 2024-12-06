@@ -7,4 +7,4 @@ releases:
     description: Integration test
     products:
       commons:
-        operatorVersion: 24.11.0
+        operatorVersion: 24.11.1-rc1
