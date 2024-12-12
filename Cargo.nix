@@ -6511,7 +6511,7 @@ rec {
       };
       "stackable-commons-operator" = rec {
         crateName = "stackable-commons-operator";
-        version = "24.11.1-rc1";
+        version = "24.11.1-rc2";
         edition = "2021";
         crateBin = [
           {
