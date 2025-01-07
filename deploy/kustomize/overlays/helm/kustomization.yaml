@@ -1,0 +1,27 @@
+---
+# This was an attempt to assemble the Helm chart from a local chart file and
+# the base manifests.
+#
+# Unfortunately it only generates a flat file list of rendered resources and
+# skips the Chart.yaml in the output altogether.
+#
+#resources:
+#  - ../../base/
+#helmGlobals:
+#  chartHome: ../../charts
+#helmCharts:
+#  - name: commons-operator
+#    releaseName: commons-operator
+#    namespace: stackable-operators
+#    valuesFile: values.yaml
+
+# This is a working example on how to use Helm charts as input (generator) resources.
+# This is not what we want because it still requires a published Helm chart to be available,
+# but this is exactly what we are trying to produce.
+helmCharts:
+  - name: commons-operator
+    version: 0.0.0-dev
+    releaseName: commons-operator
+    namespace: stackable-operators
+    valuesFile: values.yaml
+    repo: https://repo.stackable.tech/repository/helm-dev/
