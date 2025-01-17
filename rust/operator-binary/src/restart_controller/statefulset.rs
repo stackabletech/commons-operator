@@ -17,6 +17,7 @@ use stackable_operator::kube::core::{error_boundary, DeserializeGuard, DynamicOb
 use stackable_operator::kube::runtime::controller::{
     trigger_self, trigger_with, Action, ReconcileRequest,
 };
+use stackable_operator::kube::runtime::events::{Recorder, Reporter};
 use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
 use stackable_operator::kube::runtime::{
     applier, metadata_watcher, reflector, watcher, Config, WatchStreamExt,
@@ -25,6 +26,8 @@ use stackable_operator::kube::{Resource, ResourceExt};
 use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
 use stackable_operator::namespace::WatchNamespace;
 use strum::{EnumDiscriminants, IntoStaticStr};
+
+const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
 
 struct Ctx {
     kube: kube::Client,
@@ -79,6 +82,13 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
     let cms_inited = Arc::new(AtomicBool::from(false));
     let secrets_inited = Arc::new(AtomicBool::from(false));
+    let event_recorder = Arc::new(Recorder::new(
+        client.as_kube_client(),
+        Reporter {
+            controller: FULL_CONTROLLER_NAME.to_string(),
+            instance: None,
+        },
+    ));
 
     applier(
         |sts, ctx| Box::pin(reconcile(sts, ctx)),
@@ -123,9 +133,18 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         ),
         Config::default(),
     )
-    .for_each(|res| async move {
-        report_controller_reconciled(client, "statefulset.restarter.commons.stackable.tech", &res)
-    })
+    // We can let the reporting happen in the background
+    .for_each_concurrent(
+        16, // concurrency limit
+        |result| {
+            // The event_recorder needs to be shared across all invocations, so that
+            // events are correctly aggregated
+            let event_recorder = event_recorder.clone();
+            async move {
+                report_controller_reconciled(&event_recorder, FULL_CONTROLLER_NAME, &result).await;
+            }
+        },
+    )
     .await;
 }
 
