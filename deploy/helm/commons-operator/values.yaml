@@ -1,7 +1,7 @@
 # Default values for commons-operator.
 ---
 image:
-  repository: docker.stackable.tech/stackable/commons-operator
+  repository: oci.stackable.tech/sdp/commons-operator
   pullPolicy: IfNotPresent
   pullSecrets: []
 
