@@ -12,12 +12,19 @@ use stackable_operator::{
         self,
         api::{EvictParams, PartialObjectMeta},
         core::DynamicObject,
-        runtime::{controller::Action, reflector::ObjectRef, watcher, Controller},
+        runtime::{
+            controller::Action,
+            events::{Recorder, Reporter},
+            reflector::ObjectRef,
+            watcher, Controller,
+        },
     },
     logging::controller::{report_controller_reconciled, ReconcilerError},
     namespace::WatchNamespace,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
+
+const FULL_CONTROLLER_NAME: &str = "pod.restarter.commons.stackable.tech";
 
 struct Ctx {
     client: Client,
@@ -66,6 +73,13 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         watch_namespace.get_api::<PartialObjectMeta<Pod>>(client),
         watcher::Config::default(),
     );
+    let event_recorder = Arc::new(Recorder::new(
+        client.as_kube_client(),
+        Reporter {
+            controller: FULL_CONTROLLER_NAME.to_string(),
+            instance: None,
+        },
+    ));
     controller
         .run(
             reconcile,
@@ -74,9 +88,19 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
                 client: client.clone(),
             }),
         )
-        .for_each(|res| async move {
-            report_controller_reconciled(client, "pod.restarter.commons.stackable.tech", &res)
-        })
+        // We can let the reporting happen in the background
+        .for_each_concurrent(
+            16, // concurrency limit
+            |result| {
+                // The event_recorder needs to be shared across all invocations, so that
+                // events are correctly aggregated
+                let event_recorder = event_recorder.clone();
+                async move {
+                    report_controller_reconciled(&event_recorder, FULL_CONTROLLER_NAME, &result)
+                        .await;
+                }
+            },
+        )
         .await;
 }
 
