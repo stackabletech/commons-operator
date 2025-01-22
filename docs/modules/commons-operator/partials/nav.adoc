@@ -2,7 +2,6 @@
 * xref:commons-operator:usage.adoc[]
 * Concepts
 ** xref:commons-operator:restarter.adoc[]
-** xref:commons-operator:pod-enrichment.adoc[]
 * xref:commons-operator:reference/index.adoc[]
 ** xref:commons-operator:reference/crds.adoc[]
 *** {crd-docs}/authentication.stackable.tech/authenticationclass/v1alpha1/[AuthenticationClass {external-link-icon}^]

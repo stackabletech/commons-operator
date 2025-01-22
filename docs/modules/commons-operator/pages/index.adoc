@@ -1,5 +1,5 @@
 = Stackable Commons Operator
-:description: Learn about shared objects (AuthenticationClass, S3Bucket and S3Connection) and shared functionality (Pod enrichting, restarting) on the Stackable Data Platform.
+:description: Learn about shared objects (AuthenticationClass, S3Bucket and S3Connection) and shared functionality (restarting) on the Stackable Data Platform.
 :github: https://github.com/stackabletech/commons-operator/
 :crd: {crd-docs-base-url}/commons-operator/{crd-docs-version}/
 
@@ -23,4 +23,4 @@ You can also find the full CRD refererence documentation for all objects linked 
 == Shared functionality
 
 The commons operator implements functionality that is shared by all other Stackable operators.
-For example, it  xref:pod-enrichment.adoc[adds additional information to Pods] which would otherwise have to be inferred and takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in products that don't support hot reloading.
+For example, it  takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in products that don't support hot reloading.
