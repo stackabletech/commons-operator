@@ -1,4 +1,3 @@
-mod pod_enrichment_controller;
 mod restart_controller;
 
 use built_info::PKG_VERSION;
@@ -61,18 +60,8 @@ async fn main() -> anyhow::Result<()> {
             let sts_restart_controller =
                 restart_controller::statefulset::start(&client, &watch_namespace);
             let pod_restart_controller = restart_controller::pod::start(&client, &watch_namespace);
-            let pod_enrichment_controller =
-                pod_enrichment_controller::start(&client, &watch_namespace);
-            pin_mut!(
-                sts_restart_controller,
-                pod_restart_controller,
-                pod_enrichment_controller
-            );
-            futures::future::select(
-                futures::future::select(sts_restart_controller, pod_restart_controller),
-                pod_enrichment_controller,
-            )
-            .await;
+            pin_mut!(sts_restart_controller, pod_restart_controller);
+            futures::future::select(sts_restart_controller, pod_restart_controller).await;
         }
     }
 
