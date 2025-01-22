@@ -23,4 +23,4 @@ You can also find the full CRD refererence documentation for all objects linked 
 == Shared functionality
 
 The commons operator implements functionality that is shared by all other Stackable operators.
-For example, it  takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in products that don't support hot reloading.
+For example, it takes care of xref:restarter.adoc[restarting] Pods when necessary, for example to reload configuration settings in products that don't support hot reloading.
