@@ -4,15 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Removed
+## [24.11.1] - 2025-01-09
 
-- BREAKING: Removed the deprecated pod enrichment controller ([#321]).
+## [24.11.1-rc2] - 2024-12-12
 
-### Added
-
-- Aggregate emitted Kubernetes events on the CustomResources ([#318]).
-
-[#321]: https://github.com/stackabletech/commons-operator/pull/321
+## [24.11.1-rc1] - 2024-12-06
 
 ## [24.11.0] - 2024-11-18
 
