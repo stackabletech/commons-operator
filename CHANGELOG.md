@@ -12,7 +12,10 @@ All notable changes to this project will be documented in this file.
 
 - Aggregate emitted Kubernetes events on the CustomResources ([#318]).
 
+[#318]: https://github.com/stackabletech/commons-operator/pull/318
 [#321]: https://github.com/stackabletech/commons-operator/pull/321
+
+## [24.11.1] - 2025-01-09
 
 ## [24.11.0] - 2024-11-18
 
