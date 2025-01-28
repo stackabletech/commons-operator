@@ -8,7 +8,4 @@ The commons-operator is used for multiple purposes:
 
 |xref:restarter.adoc[]
 |A controller that watches Pod objects and their controllers and restarts them when required.
-
-|xref:pod-enrichment.adoc[]
-|A controller that adds commonly used information to Pod objects.
 |===

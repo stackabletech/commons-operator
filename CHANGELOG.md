@@ -4,15 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+
+- BREAKING: Removed the deprecated pod enrichment controller ([#321]).
+
 ### Added
 
 - Aggregate emitted Kubernetes events on the CustomResources ([#318]).
 
-### Changed
-
-- Append a dot (`.`) to the default cluster domain to reduce DNS requests ([#318]).
-
-[#318]: https://github.com/stackabletech/commons-operator/pull/318
+[#321]: https://github.com/stackabletech/commons-operator/pull/321
 
 ## [24.11.0] - 2024-11-18
 
