@@ -12,7 +12,12 @@ All notable changes to this project will be documented in this file.
 
 - Aggregate emitted Kubernetes events on the CustomResources ([#318]).
 
+### Changed
+
+- Default to OCI for image metadata ([#320]).
+
 [#318]: https://github.com/stackabletech/commons-operator/pull/318
+[#320]: https://github.com/stackabletech/commons-operator/pull/320
 [#321]: https://github.com/stackabletech/commons-operator/pull/321
 
 ## [24.11.1] - 2025-01-09
