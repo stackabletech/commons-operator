@@ -1,30 +1,35 @@
-use std::collections::BTreeMap;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    collections::BTreeMap,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use futures::{stream, Stream, StreamExt, TryStream};
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
-use stackable_operator::client::Client;
-use stackable_operator::k8s_openapi::api::apps::v1::StatefulSet;
-use stackable_operator::k8s_openapi::api::core::v1::{
-    ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume,
+use stackable_operator::{
+    client::Client,
+    k8s_openapi::api::{
+        apps::v1::StatefulSet,
+        core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+    },
+    kube,
+    kube::{
+        api::{PartialObjectMeta, Patch, PatchParams},
+        core::{error_boundary, DeserializeGuard, DynamicObject},
+        runtime::{
+            applier,
+            controller::{trigger_self, trigger_with, Action, ReconcileRequest},
+            events::{Recorder, Reporter},
+            metadata_watcher, reflector,
+            reflector::{ObjectRef, Store},
+            watcher, Config, WatchStreamExt,
+        },
+        Resource, ResourceExt,
+    },
+    logging::controller::{report_controller_reconciled, ReconcilerError},
+    namespace::WatchNamespace,
 };
-use stackable_operator::kube;
-use stackable_operator::kube::api::{PartialObjectMeta, Patch, PatchParams};
-use stackable_operator::kube::core::{error_boundary, DeserializeGuard, DynamicObject};
-use stackable_operator::kube::runtime::controller::{
-    trigger_self, trigger_with, Action, ReconcileRequest,
-};
-use stackable_operator::kube::runtime::events::{Recorder, Reporter};
-use stackable_operator::kube::runtime::reflector::{ObjectRef, Store};
-use stackable_operator::kube::runtime::{
-    applier, metadata_watcher, reflector, watcher, Config, WatchStreamExt,
-};
-use stackable_operator::kube::{Resource, ResourceExt};
-use stackable_operator::logging::controller::{report_controller_reconciled, ReconcilerError};
-use stackable_operator::namespace::WatchNamespace;
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
