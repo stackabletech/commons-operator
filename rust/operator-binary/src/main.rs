@@ -1,15 +1,16 @@
 mod restart_controller;
 
 use built_info::PKG_VERSION;
-use futures::pin_mut;
-use stackable_operator::cli::{Command, ProductOperatorRun};
-
 use clap::{crate_description, crate_version, Parser};
-use stackable_operator::commons::{
-    authentication::AuthenticationClass,
-    s3::{S3Bucket, S3Connection},
+use futures::pin_mut;
+use stackable_operator::{
+    cli::{Command, ProductOperatorRun},
+    commons::{
+        authentication::AuthenticationClass,
+        s3::{S3Bucket, S3Connection},
+    },
+    CustomResourceExt,
 };
-use stackable_operator::CustomResourceExt;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
