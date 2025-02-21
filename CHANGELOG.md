@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Aggregate emitted Kubernetes events on the CustomResources ([#318]).
+- Add the region field to the S3Connection CRD ([#331]).
 
 ### Changed
 
@@ -19,6 +20,7 @@ All notable changes to this project will be documented in this file.
 [#318]: https://github.com/stackabletech/commons-operator/pull/318
 [#320]: https://github.com/stackabletech/commons-operator/pull/320
 [#321]: https://github.com/stackabletech/commons-operator/pull/321
+[#331]: https://github.com/stackabletech/commons-operator/pull/331
 
 ## [24.11.1] - 2025-01-09
 
