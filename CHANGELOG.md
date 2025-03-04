@@ -15,12 +15,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump `stackable-operator` to 0.87.0 ([#334]).
 - Default to OCI for image metadata ([#320]).
 
 [#318]: https://github.com/stackabletech/commons-operator/pull/318
 [#320]: https://github.com/stackabletech/commons-operator/pull/320
 [#321]: https://github.com/stackabletech/commons-operator/pull/321
 [#331]: https://github.com/stackabletech/commons-operator/pull/331
+[#334]: https://github.com/stackabletech/commons-operator/pull/334
 
 ## [24.11.1] - 2025-01-09
 
