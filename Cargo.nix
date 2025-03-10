@@ -5918,10 +5918,10 @@ rec {
       };
       "ring" = rec {
         crateName = "ring";
-        version = "0.17.11";
+        version = "0.17.13";
         edition = "2021";
-        links = "ring_core_0_17_11_";
-        sha256 = "0wzyhdbf71ndd14kkpyj2a6nvczvli2mndzv2al7r26k4yp4jlys";
+        links = "ring_core_0_17_13_";
+        sha256 = "1vjhhlmpqqd9lc53ffjj1yk203188n2km27g3myvssm15a1mvb3h";
         dependencies = [
           {
             name = "cfg-if";
@@ -7110,13 +7110,13 @@ rec {
       };
       "stackable-operator" = rec {
         crateName = "stackable-operator";
-        version = "0.87.0";
+        version = "0.87.2";
         edition = "2021";
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "53ccc1e9eca2a5b35a8618593c548e8687fb150d";
-          sha256 = "0asgwj93drwvqsgd5c563qawjc3avb42nav0i5dgs4zv8bldx6x0";
+          rev = "bc176bfc23f15533cdb3b7a7e7a773d4f29891e1";
+          sha256 = "0cqz1xmj3vbm5hm9x6wbgg2l265s30j5j5609wmg68p6giywh82a";
         };
         libName = "stackable_operator";
         authors = [
@@ -7275,8 +7275,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "53ccc1e9eca2a5b35a8618593c548e8687fb150d";
-          sha256 = "0asgwj93drwvqsgd5c563qawjc3avb42nav0i5dgs4zv8bldx6x0";
+          rev = "bc176bfc23f15533cdb3b7a7e7a773d4f29891e1";
+          sha256 = "0cqz1xmj3vbm5hm9x6wbgg2l265s30j5j5609wmg68p6giywh82a";
         };
         procMacro = true;
         libName = "stackable_operator_derive";
@@ -7310,8 +7310,8 @@ rec {
         workspace_member = null;
         src = pkgs.fetchgit {
           url = "https://github.com/stackabletech/operator-rs.git";
-          rev = "53ccc1e9eca2a5b35a8618593c548e8687fb150d";
-          sha256 = "0asgwj93drwvqsgd5c563qawjc3avb42nav0i5dgs4zv8bldx6x0";
+          rev = "bc176bfc23f15533cdb3b7a7e7a773d4f29891e1";
+          sha256 = "0cqz1xmj3vbm5hm9x6wbgg2l265s30j5j5609wmg68p6giywh82a";
         };
         libName = "stackable_shared";
         authors = [
