@@ -1,10 +1,10 @@
 use std::{
     collections::BTreeMap,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{Arc, atomic::AtomicBool},
     time::Duration,
 };
 
-use futures::{stream, Stream, StreamExt, TryStream};
+use futures::{Stream, StreamExt, TryStream, stream};
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
@@ -15,19 +15,19 @@ use stackable_operator::{
     },
     kube,
     kube::{
+        Resource, ResourceExt,
         api::{PartialObjectMeta, Patch, PatchParams},
-        core::{error_boundary, DeserializeGuard, DynamicObject},
+        core::{DeserializeGuard, DynamicObject, error_boundary},
         runtime::{
-            applier,
-            controller::{trigger_self, trigger_with, Action, ReconcileRequest},
+            Config, WatchStreamExt, applier,
+            controller::{Action, ReconcileRequest, trigger_self, trigger_with},
             events::{Recorder, Reporter},
             metadata_watcher, reflector,
             reflector::{ObjectRef, Store},
-            watcher, Config, WatchStreamExt,
+            watcher,
         },
-        Resource, ResourceExt,
     },
-    logging::controller::{report_controller_reconciled, ReconcilerError},
+    logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -87,13 +87,10 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
     let cms_inited = Arc::new(AtomicBool::from(false));
     let secrets_inited = Arc::new(AtomicBool::from(false));
-    let event_recorder = Arc::new(Recorder::new(
-        client.as_kube_client(),
-        Reporter {
-            controller: FULL_CONTROLLER_NAME.to_string(),
-            instance: None,
-        },
-    ));
+    let event_recorder = Arc::new(Recorder::new(client.as_kube_client(), Reporter {
+        controller: FULL_CONTROLLER_NAME.to_string(),
+        instance: None,
+    }));
 
     applier(
         |sts, ctx| Box::pin(reconcile(sts, ctx)),

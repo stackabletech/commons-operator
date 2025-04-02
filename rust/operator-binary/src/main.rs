@@ -1,15 +1,15 @@
 mod restart_controller;
 
 use built_info::PKG_VERSION;
-use clap::{crate_description, crate_version, Parser};
+use clap::{Parser, crate_description, crate_version};
 use futures::pin_mut;
 use stackable_operator::{
+    CustomResourceExt,
     cli::{Command, ProductOperatorRun},
     commons::{
         authentication::AuthenticationClass,
         s3::{S3Bucket, S3Connection},
     },
-    CustomResourceExt,
 };
 
 mod built_info {
