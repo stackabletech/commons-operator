@@ -13,13 +13,14 @@ use stackable_operator::{
         api::{EvictParams, PartialObjectMeta},
         core::DynamicObject,
         runtime::{
+            Controller,
             controller::Action,
             events::{Recorder, Reporter},
             reflector::ObjectRef,
-            watcher, Controller,
+            watcher,
         },
     },
-    logging::controller::{report_controller_reconciled, ReconcilerError},
+    logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
@@ -73,13 +74,10 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         watch_namespace.get_api::<PartialObjectMeta<Pod>>(client),
         watcher::Config::default(),
     );
-    let event_recorder = Arc::new(Recorder::new(
-        client.as_kube_client(),
-        Reporter {
-            controller: FULL_CONTROLLER_NAME.to_string(),
-            instance: None,
-        },
-    ));
+    let event_recorder = Arc::new(Recorder::new(client.as_kube_client(), Reporter {
+        controller: FULL_CONTROLLER_NAME.to_string(),
+        instance: None,
+    }));
     controller
         .run(
             reconcile,
