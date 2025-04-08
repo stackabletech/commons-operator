@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Replace stackable-operator `initialize_logging` with stackable-telemetry `Tracing` ([#338]).
+  - BREAKING: The file log directory was set by `COMMONS_OPERATOR_LOG_DIRECTORY`,
+    and is now set by `ROLLING_LOGS` (or via `--rolling-logs <DIRECTORY>`).
+  - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
+
+[#338]: https://github.com/stackabletech/commons-operator/pull/338
+
 ## [25.3.0] - 2025-03-21
 
 ### Removed
