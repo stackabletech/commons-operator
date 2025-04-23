@@ -4,13 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Adds new telemetry CLI arguments and environment variables ([#349]).
+  - Use `--file-log-max-files` (or `FILE_LOG_MAX_FILES`) to limit the number of log files kept.
+  - Use `--file-log-rotation-period` (or `FILE_LOG_ROTATION_PERIOD`) to configure the frequency of rotation.
+  - Use `--console-log-format` (or `CONSOLE_LOG_FORMAT`) to set the format to `plain` (default) or `json`.
+
 ### Changed
 
-- Replace stackable-operator `initialize_logging` with stackable-telemetry `Tracing` ([#338], [#344]).
-  - BREAKING: The console log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `CONSOLE_LOG`.
-  - BREAKING: The file log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `FILE_LOG`.
+- Replace stackable-operator `initialize_logging` with stackable-telemetry `Tracing` ([#338], [#344], [#349]).
+  - BREAKING: The console log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `CONSOLE_LOG_LEVEL`.
+  - BREAKING: The file log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `FILE_LOG_LEVEL`.
   - BREAKING: The file log directory was set by `COMMONS_OPERATOR_LOG_DIRECTORY`, and is now set
-    by `ROLLING_LOGS_DIR` (or via `--rolling-logs <DIRECTORY>`).
+    by `FILE_LOG_DIRECTORY` (or via `--file-log-directory <DIRECTORY>`).
   - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
 
 ### Fixed
@@ -20,6 +27,7 @@ All notable changes to this project will be documented in this file.
 [#338]: https://github.com/stackabletech/commons-operator/pull/338
 [#343]: https://github.com/stackabletech/commons-operator/pull/343
 [#344]: https://github.com/stackabletech/commons-operator/pull/344
+[#349]: https://github.com/stackabletech/commons-operator/pull/349
 
 ## [25.3.0] - 2025-03-21
 
