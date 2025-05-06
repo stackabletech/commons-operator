@@ -87,10 +87,13 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
     let cms_inited = Arc::new(AtomicBool::from(false));
     let secrets_inited = Arc::new(AtomicBool::from(false));
-    let event_recorder = Arc::new(Recorder::new(client.as_kube_client(), Reporter {
-        controller: FULL_CONTROLLER_NAME.to_string(),
-        instance: None,
-    }));
+    let event_recorder = Arc::new(Recorder::new(
+        client.as_kube_client(),
+        Reporter {
+            controller: FULL_CONTROLLER_NAME.to_string(),
+            instance: None,
+        },
+    ));
 
     applier(
         |sts, ctx| Box::pin(reconcile(sts, ctx)),
