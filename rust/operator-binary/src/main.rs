@@ -3,12 +3,13 @@ mod restart_controller;
 use clap::Parser;
 use futures::pin_mut;
 use stackable_operator::{
-    CustomResourceExt,
+    YamlSchema as _,
     cli::{Command, ProductOperatorRun},
-    commons::{
-        authentication::AuthenticationClass,
+    crd::{
+        authentication::core::AuthenticationClass,
         s3::{S3Bucket, S3Connection},
     },
+    shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
 
@@ -28,9 +29,12 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
         Command::Crd => {
-            AuthenticationClass::print_yaml_schema(built_info::PKG_VERSION)?;
-            S3Connection::print_yaml_schema(built_info::PKG_VERSION)?;
-            S3Bucket::print_yaml_schema(built_info::PKG_VERSION)?;
+            AuthenticationClass::merged_crd(AuthenticationClass::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+            S3Connection::merged_crd(S3Connection::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+            S3Bucket::merged_crd(S3Bucket::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
         Command::Run(ProductOperatorRun {
             product_config: _,
