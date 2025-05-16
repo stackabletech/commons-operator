@@ -22,7 +22,12 @@ spec:
           description: Auto-generated derived type for AuthenticationClassSpec via `CustomResource`
           properties:
             spec:
-              description: The Stackable Platform uses the AuthenticationClass as a central mechanism to handle user authentication across supported products. The authentication mechanism needs to be configured only in the AuthenticationClass which is then referenced in the product. Multiple different authentication providers are supported. Learn more in the [authentication concept documentation](https://docs.stackable.tech/home/nightly/concepts/authentication) and the [Authentication with OpenLDAP tutorial](https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap).
+              description: |-
+                The Stackable Platform uses the AuthenticationClass as a central mechanism to handle user authentication across supported products.
+
+                The authentication mechanism needs to be configured only in the AuthenticationClass which is then referenced in the product. Multiple different authentication providers are supported. Learn more in the [authentication concept documentation][1] and the [Authentication with OpenLDAP tutorial][2].
+
+                [1]: https://docs.stackable.tech/home/nightly/concepts/authentication [2]: https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap
               properties:
                 provider:
                   description: Provider used for authentication like LDAP or Kerberos.
@@ -310,7 +315,7 @@ spec:
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: Auto-generated derived type for S3ConnectionSpec via `CustomResource`
+          description: Auto-generated derived type for ConnectionSpec via `CustomResource`
           properties:
             spec:
               description: S3 connection definition as a resource. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
@@ -451,7 +456,7 @@ spec:
       name: v1alpha1
       schema:
         openAPIV3Schema:
-          description: Auto-generated derived type for S3BucketSpec via `CustomResource`
+          description: Auto-generated derived type for BucketSpec via `CustomResource`
           properties:
             spec:
               description: S3 bucket specification containing the bucket name and an inlined or referenced connection specification. Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
