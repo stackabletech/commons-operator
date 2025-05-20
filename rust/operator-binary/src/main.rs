@@ -5,10 +5,7 @@ use futures::pin_mut;
 use stackable_operator::{
     CustomResourceExt,
     cli::{Command, ProductOperatorRun},
-    commons::{
-        authentication::AuthenticationClass,
-        s3::{S3Bucket, S3Connection},
-    },
+    crd::{authentication, s3},
     telemetry::Tracing,
 };
 
@@ -28,9 +25,11 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
         Command::Crd => {
-            AuthenticationClass::print_yaml_schema(built_info::PKG_VERSION)?;
-            S3Connection::print_yaml_schema(built_info::PKG_VERSION)?;
-            S3Bucket::print_yaml_schema(built_info::PKG_VERSION)?;
+            authentication::core::v1alpha1::AuthenticationClass::print_yaml_schema(
+                built_info::PKG_VERSION,
+            )?;
+            s3::v1alpha1::S3Connection::print_yaml_schema(built_info::PKG_VERSION)?;
+            s3::v1alpha1::S3Bucket::print_yaml_schema(built_info::PKG_VERSION)?;
         }
         Command::Run(ProductOperatorRun {
             product_config: _,
