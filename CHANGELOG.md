@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
   - BREAKING: The file log directory was set by `COMMONS_OPERATOR_LOG_DIRECTORY`, and is now set
     by `FILE_LOG_DIRECTORY` (or via `--file-log-directory <DIRECTORY>`).
   - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
+- Use versioned common structs ([#357]).
 
 ### Fixed
 
@@ -28,6 +29,7 @@ All notable changes to this project will be documented in this file.
 [#343]: https://github.com/stackabletech/commons-operator/pull/343
 [#344]: https://github.com/stackabletech/commons-operator/pull/344
 [#349]: https://github.com/stackabletech/commons-operator/pull/349
+[#357]: https://github.com/stackabletech/commons-operator/pull/357
 
 ## [25.3.0] - 2025-03-21
 
