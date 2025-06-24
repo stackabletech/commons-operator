@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
     by `FILE_LOG_DIRECTORY` (or via `--file-log-directory <DIRECTORY>`).
   - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
 - Version CRDs and bump dependencies ([#353]).
+- Limit rescheduling delay to a maximum of 6 months ([#363]).
 
 ### Fixed
 
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#344]: https://github.com/stackabletech/commons-operator/pull/344
 [#349]: https://github.com/stackabletech/commons-operator/pull/349
 [#353]: https://github.com/stackabletech/commons-operator/pull/353
+[#363]: https://github.com/stackabletech/commons-operator/pull/363
 
 ## [25.3.0] - 2025-03-21
 
