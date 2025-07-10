@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Add RBAC rule to Helm template for automatic cluster domain detection ([#xxx]).
+- Add RBAC rule to Helm template for automatic cluster domain detection ([#365]).
 - Adds new telemetry CLI arguments and environment variables ([#349]).
   - Use `--file-log-max-files` (or `FILE_LOG_MAX_FILES`) to limit the number of log files kept.
   - Use `--file-log-rotation-period` (or `FILE_LOG_ROTATION_PERIOD`) to configure the frequency of rotation.
@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Bump stackable-operator to 0.94.0 ([#xxx]).
+- Bump stackable-operator to 0.94.0 ([#365]).
 - Replace stackable-operator `initialize_logging` with stackable-telemetry `Tracing` ([#338], [#344], [#349]).
   - BREAKING: The console log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `CONSOLE_LOG_LEVEL`.
   - BREAKING: The file log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `FILE_LOG_LEVEL`.
@@ -34,7 +34,7 @@ All notable changes to this project will be documented in this file.
 [#349]: https://github.com/stackabletech/commons-operator/pull/349
 [#353]: https://github.com/stackabletech/commons-operator/pull/353
 [#363]: https://github.com/stackabletech/commons-operator/pull/363
-[#xxx]: https://github.com/stackabletech/commons-operator/pull/xxx
+[#365]: https://github.com/stackabletech/commons-operator/pull/365
 
 ## [25.3.0] - 2025-03-21
 
