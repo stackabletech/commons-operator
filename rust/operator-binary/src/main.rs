@@ -1,3 +1,7 @@
+// TODO: Look into how to properly resolve `clippy::large_enum_variant`.
+// This will need changes in our and upstream error types.
+#![allow(clippy::large_enum_variant)]
+
 mod restart_controller;
 
 use clap::Parser;
