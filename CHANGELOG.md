@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to 0.94.0 ([#xxx]).
 - Replace stackable-operator `initialize_logging` with stackable-telemetry `Tracing` ([#338], [#344], [#349]).
   - BREAKING: The console log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `CONSOLE_LOG_LEVEL`.
   - BREAKING: The file log level was set by `COMMONS_OPERATOR_LOG`, and is now set by `FILE_LOG_LEVEL`.
@@ -33,6 +34,7 @@ All notable changes to this project will be documented in this file.
 [#349]: https://github.com/stackabletech/commons-operator/pull/349
 [#353]: https://github.com/stackabletech/commons-operator/pull/353
 [#363]: https://github.com/stackabletech/commons-operator/pull/363
+[#xxx]: https://github.com/stackabletech/commons-operator/pull/xxx
 
 ## [25.3.0] - 2025-03-21
 
