@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
   - Use `--file-log-max-files` (or `FILE_LOG_MAX_FILES`) to limit the number of log files kept.
   - Use `--file-log-rotation-period` (or `FILE_LOG_ROTATION_PERIOD`) to configure the frequency of rotation.
   - Use `--console-log-format` (or `CONSOLE_LOG_FORMAT`) to set the format to `plain` (default) or `json`.
+- Add RBAC rule to Helm template for automatic cluster domain detection ([#365]).
 
 ### Changed
 
@@ -21,10 +22,20 @@ All notable changes to this project will be documented in this file.
   - Replace stackable-operator `print_startup_string` with `tracing::info!` with fields.
 - Version CRDs and bump dependencies ([#353]).
 - Limit rescheduling delay to a maximum of 6 months ([#363]).
+- BREAKING: Bump stackable-operator to 0.94.0 and update other dependencies ([#365]).
+  - The default Kubernetes cluster domain name is now fetched from the kubelet API unless explicitly configured.
+  - This requires operators to have the RBAC permission to get nodes/proxy in the apiGroup "". The helm-chart takes care of this.
+  - The CLI argument `--kubernetes-node-name` or env variable `KUBERNETES_NODE_NAME` needs to be set. The helm-chart takes care of this.
 
 ### Fixed
 
 - Use `json` file extension for log files ([#343]).
+- Allow uppercase characters in domain names ([#365]).
+
+### Removed
+
+- Remove the `lastUpdateTime` field from the stacklet status ([#365]).
+- Remove role binding to legacy service accounts ([#365]).
 
 [#338]: https://github.com/stackabletech/commons-operator/pull/338
 [#343]: https://github.com/stackabletech/commons-operator/pull/343
@@ -32,6 +43,7 @@ All notable changes to this project will be documented in this file.
 [#349]: https://github.com/stackabletech/commons-operator/pull/349
 [#353]: https://github.com/stackabletech/commons-operator/pull/353
 [#363]: https://github.com/stackabletech/commons-operator/pull/363
+[#365]: https://github.com/stackabletech/commons-operator/pull/365
 
 ## [25.3.0] - 2025-03-21
 
