@@ -74,10 +74,13 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         watch_namespace.get_api::<PartialObjectMeta<Pod>>(client),
         watcher::Config::default(),
     );
-    let event_recorder = Arc::new(Recorder::new(client.as_kube_client(), Reporter {
-        controller: FULL_CONTROLLER_NAME.to_string(),
-        instance: None,
-    }));
+    let event_recorder = Arc::new(Recorder::new(
+        client.as_kube_client(),
+        Reporter {
+            controller: FULL_CONTROLLER_NAME.to_string(),
+            instance: None,
+        },
+    ));
     controller
         .run(
             reconcile,
@@ -171,6 +174,10 @@ async fn reconcile(pod: Arc<PartialObjectMeta<Pod>>, ctx: Arc<Ctx>) -> Result<Ac
         }
 
         Some(Ok(time_until_pod_expires)) => {
+            // Clamp the rescheduling delay to a maximum of 6 months to prevent `Action::requeue` from panicking
+            // This workaround can be removed once https://github.com/kube-rs/kube/issues/1772 is resolved
+            let time_until_pod_expires =
+                time_until_pod_expires.min(Duration::from_secs(6 * 30 * 24 * 60 * 60));
             tracing::info!(
                 pod.expires_at = ?pod_expires_at,
                 recheck_delay = ?time_until_pod_expires,

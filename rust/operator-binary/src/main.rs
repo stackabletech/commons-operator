@@ -1,14 +1,19 @@
+// TODO: Look into how to properly resolve `clippy::large_enum_variant`.
+// This will need changes in our and upstream error types.
+#![allow(clippy::large_enum_variant)]
+
 mod restart_controller;
 
 use clap::Parser;
 use futures::pin_mut;
 use stackable_operator::{
-    CustomResourceExt,
+    YamlSchema as _,
     cli::{Command, ProductOperatorRun},
-    commons::{
-        authentication::AuthenticationClass,
-        s3::{S3Bucket, S3Connection},
+    crd::{
+        authentication::core::{AuthenticationClass, AuthenticationClassVersion},
+        s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
     },
+    shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
 
@@ -28,9 +33,12 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
     match opts.cmd {
         Command::Crd => {
-            AuthenticationClass::print_yaml_schema(built_info::PKG_VERSION)?;
-            S3Connection::print_yaml_schema(built_info::PKG_VERSION)?;
-            S3Bucket::print_yaml_schema(built_info::PKG_VERSION)?;
+            AuthenticationClass::merged_crd(AuthenticationClassVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+            S3Connection::merged_crd(S3ConnectionVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+            S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
         Command::Run(ProductOperatorRun {
             product_config: _,
