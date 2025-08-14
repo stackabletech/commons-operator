@@ -199,6 +199,7 @@ async fn reconcile(pod: Arc<PartialObjectMeta<Pod>>, ctx: Arc<Ctx>) -> Result<Ac
 /// Because of this, we don't emit an error for this case, but only product a INFO trace.
 ///
 /// `ERROR stackable_operator::logging::controller: Failed to reconcile object controller.name="pod.restarter.commons.stackable.tech" error=reconciler for object Pod.v1./trino-worker-default-0.default failed error.sources=[failed to evict Pod, ApiError: Cannot evict pod as it would violate the pod's disruption budget.: TooManyRequests (ErrorResponse { status: "Failure", message: "Cannot evict pod as it would violate the pod's disruption budget.", reason: "TooManyRequests", code: 429 }), Cannot evict pod as it would violate the pod's disruption budget.: TooManyRequests]`
+#[allow(clippy::type_complexity)] // The result type complexity comes from kube-rs and is what it is
 async fn report_result(
     result: Result<
         (ObjectRef<PartialObjectMeta<Pod>>, Action),
