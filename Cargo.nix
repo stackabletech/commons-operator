@@ -8250,6 +8250,10 @@ rec {
             features = [ "compat" ];
           }
           {
+            name = "http";
+            packageId = "http";
+          }
+          {
             name = "serde";
             packageId = "serde";
             features = [ "derive" ];
