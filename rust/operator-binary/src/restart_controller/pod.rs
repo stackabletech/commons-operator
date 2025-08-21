@@ -211,7 +211,7 @@ async fn report_result(
         Error::EvictPod {
             source: evict_pod_error,
         },
-        _,
+        pod,
     )) = &result
     {
         const TOO_MANY_REQUESTS_HTTP_CODE: u16 = StatusCode::TOO_MANY_REQUESTS.as_u16();
@@ -221,9 +221,11 @@ async fn report_result(
         }) = evict_pod_error
         {
             tracing::info!(
-                ?evict_pod_error,
+                %pod,
+                error = %evict_pod_error,
                 "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
             );
+            return;
         }
     }
 
