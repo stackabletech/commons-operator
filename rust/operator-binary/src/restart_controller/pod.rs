@@ -215,17 +215,27 @@ async fn report_result(
     )) = &result
     {
         const TOO_MANY_REQUESTS_HTTP_CODE: u16 = StatusCode::TOO_MANY_REQUESTS.as_u16();
+        // We can not blanket silence all 429 responses, as it could be something else.
+        // E.g. I have seen "storage is re-initializing" in the past.
+        const EVICT_ERROR_MESSAGE: &str =
+            "Cannot evict pod as it would violate the pod's disruption budget.";
+
         if let kube::Error::Api(ErrorResponse {
             code: TOO_MANY_REQUESTS_HTTP_CODE,
+            message: error_message,
             ..
         }) = evict_pod_error
+        // TODO: We need Rust 1.88 and 2024 edition for if-let-chains
+        // && error_message == EVICT_ERROR_MESSAGE
         {
-            tracing::info!(
-                %pod,
-                error = %evict_pod_error,
-                "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
-            );
-            return;
+            if error_message == EVICT_ERROR_MESSAGE {
+                tracing::info!(
+                    %pod,
+                    error = %evict_pod_error,
+                    "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
+                );
+                return;
+            }
         }
     }
 
