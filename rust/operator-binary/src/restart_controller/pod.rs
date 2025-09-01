@@ -230,7 +230,7 @@ async fn report_result(
         {
             if error_message == EVICT_ERROR_MESSAGE {
                 tracing::info!(
-                    k8s.object_ref = %pod_ref,
+                    k8s.object.ref = %pod_ref,
                     error = %evict_pod_error,
                     "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
                 );
