@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::StreamExt;
+use http::StatusCode;
 use snafu::{OptionExt, ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
@@ -11,10 +12,10 @@ use stackable_operator::{
     kube::{
         self,
         api::{EvictParams, PartialObjectMeta},
-        core::DynamicObject,
+        core::{DynamicObject, ErrorResponse},
         runtime::{
             Controller,
-            controller::Action,
+            controller::{self, Action},
             events::{Recorder, Reporter},
             reflector::ObjectRef,
             watcher,
@@ -96,10 +97,7 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
                 // The event_recorder needs to be shared across all invocations, so that
                 // events are correctly aggregated
                 let event_recorder = event_recorder.clone();
-                async move {
-                    report_controller_reconciled(&event_recorder, FULL_CONTROLLER_NAME, &result)
-                        .await;
-                }
+                async move { report_result(result, event_recorder).await }
             },
         )
         .await;
@@ -190,6 +188,58 @@ async fn reconcile(pod: Arc<PartialObjectMeta<Pod>>, ctx: Arc<Ctx>) -> Result<Ac
             Ok(Action::await_change())
         }
     }
+}
+
+/// Reports the result of reconciliation.
+///
+/// The Pod restart controller has special handling, as it produced lot's of error messages below.
+/// They are expected, as we intentionally use the `Evict` API to restart Pods before e.g. the
+/// certificate expires. We roll out PDBs by default. If we try to restart multiple Pods that are
+/// part of a PDB, we get this errors.
+/// Because of this, we don't emit an error for this case, but only product a INFO trace.
+///
+/// `ERROR stackable_operator::logging::controller: Failed to reconcile object controller.name="pod.restarter.commons.stackable.tech" error=reconciler for object Pod.v1./trino-worker-default-0.default failed error.sources=[failed to evict Pod, ApiError: Cannot evict pod as it would violate the pod's disruption budget.: TooManyRequests (ErrorResponse { status: "Failure", message: "Cannot evict pod as it would violate the pod's disruption budget.", reason: "TooManyRequests", code: 429 }), Cannot evict pod as it would violate the pod's disruption budget.: TooManyRequests]`
+#[allow(clippy::type_complexity)] // The result type complexity comes from kube-rs and is what it is
+async fn report_result(
+    result: Result<
+        (ObjectRef<PartialObjectMeta<Pod>>, Action),
+        controller::Error<Error, watcher::Error>,
+    >,
+    event_recorder: Arc<Recorder>,
+) {
+    if let Err(controller::Error::ReconcilerFailed(
+        Error::EvictPod {
+            source: evict_pod_error,
+        },
+        pod_ref,
+    )) = &result
+    {
+        const TOO_MANY_REQUESTS_HTTP_CODE: u16 = StatusCode::TOO_MANY_REQUESTS.as_u16();
+        // We can not blanket silence all 429 responses, as it could be something else.
+        // E.g. I have seen "storage is re-initializing" in the past.
+        const EVICT_ERROR_MESSAGE: &str =
+            "Cannot evict pod as it would violate the pod's disruption budget.";
+
+        if let kube::Error::Api(ErrorResponse {
+            code: TOO_MANY_REQUESTS_HTTP_CODE,
+            message: error_message,
+            ..
+        }) = evict_pod_error
+        // TODO: We need Rust 1.88 and 2024 edition for if-let-chains
+        // && error_message == EVICT_ERROR_MESSAGE
+        {
+            if error_message == EVICT_ERROR_MESSAGE {
+                tracing::info!(
+                    k8s.object.ref = %pod_ref,
+                    error = %evict_pod_error,
+                    "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
+                );
+                return;
+            }
+        }
+    }
+
+    report_controller_reconciled(&event_recorder, FULL_CONTROLLER_NAME, &result).await;
 }
 
 fn error_policy(_obj: Arc<PartialObjectMeta<Pod>>, _error: &Error, _ctx: Arc<Ctx>) -> Action {

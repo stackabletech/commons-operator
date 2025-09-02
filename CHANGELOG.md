@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Reduce severity of Pod eviction errors. Previously, the operator would produce lot's of
+  `Cannot evict pod as it would violate the pod's disruption budget` errors. With this fix, the
+  error is reduced to an info instead ([#372]).
+
+[#372]: https://github.com/stackabletech/commons-operator/pull/372
+
 ## [25.7.0] - 2025-07-23
 
 ## [25.7.0-rc1] - 2025-07-18

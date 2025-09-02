@@ -2566,6 +2566,7 @@ dependencies = [
  "built",
  "clap",
  "futures 0.3.31",
+ "http",
  "serde",
  "serde_json",
  "snafu 0.8.7",
