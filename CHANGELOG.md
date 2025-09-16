@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Helm: Allow Pod `priorityClassName` to be configured ([#376]).
+
 ### Changed
 
 - Reduce severity of Pod eviction errors. Previously, the operator would produce lot's of
@@ -11,6 +15,7 @@ All notable changes to this project will be documented in this file.
   error is reduced to an info instead ([#372]).
 
 [#372]: https://github.com/stackabletech/commons-operator/pull/372
+[#376]: https://github.com/stackabletech/commons-operator/pull/376
 
 ## [25.7.0] - 2025-07-23
 
