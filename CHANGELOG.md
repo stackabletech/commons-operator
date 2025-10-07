@@ -7,6 +7,10 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Helm: Allow Pod `priorityClassName` to be configured ([#376]).
+- Add end-of-support checker ([#377]).
+  - `EOS_CHECK_MODE` (`--eos-check-mode`) to set the EoS check mode. Currently, only "offline" is supported.
+  - `EOS_INTERVAL` (`--eos-interval`) to set the interval in which the operator checks if it is EoS.
+  - `EOS_DISABLED` (`--eos-disabled`) to disable the EoS checker completely.
 
 ### Changed
 
@@ -16,6 +20,7 @@ All notable changes to this project will be documented in this file.
 
 [#372]: https://github.com/stackabletech/commons-operator/pull/372
 [#376]: https://github.com/stackabletech/commons-operator/pull/376
+[#377]: https://github.com/stackabletech/commons-operator/pull/377
 
 ## [25.7.0] - 2025-07-23
 

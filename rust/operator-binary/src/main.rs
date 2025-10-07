@@ -5,14 +5,15 @@
 mod restart_controller;
 
 use clap::Parser;
-use futures::pin_mut;
+use futures::FutureExt;
 use stackable_operator::{
     YamlSchema as _,
-    cli::{Command, ProductOperatorRun},
+    cli::{Command, RunArguments},
     crd::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
     },
+    eos::EndOfSupportChecker,
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
@@ -40,18 +41,19 @@ async fn main() -> anyhow::Result<()> {
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
-        Command::Run(ProductOperatorRun {
+        Command::Run(RunArguments {
             product_config: _,
             watch_namespace,
             operator_environment: _,
-            telemetry,
-            cluster_info,
+            maintenance,
+            common,
         }) => {
             // NOTE (@NickLarsenNZ): Before stackable-telemetry was used:
             // - The console log level was set by `COMMONS_OPERATOR_LOG`, and is now `CONSOLE_LOG` (when using Tracing::pre_configured).
             // - The file log level was (maybe?) set by `COMMONS_OPERATOR_LOG`, and is now set via `FILE_LOG` (when using Tracing::pre_configured).
             // - The file log directory was set by `COMMONS_OPERATOR_LOG_DIRECTORY`, and is now set by `ROLLING_LOGS_DIR` (or via `--rolling-logs <DIRECTORY>`).
-            let _tracing_guard = Tracing::pre_configured(built_info::PKG_NAME, telemetry).init()?;
+            let _tracing_guard =
+                Tracing::pre_configured(built_info::PKG_NAME, common.telemetry).init()?;
 
             tracing::info!(
                 built_info.pkg_version = built_info::PKG_VERSION,
@@ -63,17 +65,23 @@ async fn main() -> anyhow::Result<()> {
                 description = built_info::PKG_DESCRIPTION
             );
 
+            let eos_checker =
+                EndOfSupportChecker::new(built_info::BUILT_TIME_UTC, maintenance.end_of_support)?
+                    .run()
+                    .map(anyhow::Ok);
+
             let client = stackable_operator::client::initialize_operator(
                 Some("commons.stackable.tech".to_string()),
-                &cluster_info,
+                &common.cluster_info,
             )
             .await?;
 
             let sts_restart_controller =
-                restart_controller::statefulset::start(&client, &watch_namespace);
-            let pod_restart_controller = restart_controller::pod::start(&client, &watch_namespace);
-            pin_mut!(sts_restart_controller, pod_restart_controller);
-            futures::future::select(sts_restart_controller, pod_restart_controller).await;
+                restart_controller::statefulset::start(&client, &watch_namespace).map(anyhow::Ok);
+            let pod_restart_controller =
+                restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
+
+            futures::try_join!(sts_restart_controller, pod_restart_controller, eos_checker)?;
         }
     }
 
