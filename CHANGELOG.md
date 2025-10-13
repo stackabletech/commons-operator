@@ -17,10 +17,12 @@ All notable changes to this project will be documented in this file.
 - Reduce severity of Pod eviction errors. Previously, the operator would produce lot's of
   `Cannot evict pod as it would violate the pod's disruption budget` errors. With this fix, the
   error is reduced to an info instead ([#372]).
+- Remove workaround for limiting rescheduling delay ([#378]).
 
 [#372]: https://github.com/stackabletech/commons-operator/pull/372
 [#376]: https://github.com/stackabletech/commons-operator/pull/376
 [#377]: https://github.com/stackabletech/commons-operator/pull/377
+[#378]: https://github.com/stackabletech/commons-operator/pull/378
 
 ## [25.7.0] - 2025-07-23
 
