@@ -31,8 +31,8 @@ spec:
                 Learn more in the [authentication concept documentation][1] and the
                 [Authentication with OpenLDAP tutorial][2].
 
-                [1]: https://docs.stackable.tech/home/nightly/concepts/authentication
-                [2]: https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap
+                [1]: https://docs.stackable.tech/home/25.11/concepts/authentication
+                [2]: https://docs.stackable.tech/home/25.11/tutorials/authentication_with_openldap
               properties:
                 provider:
                   description: Provider used for authentication like LDAP or Kerberos.
@@ -50,7 +50,7 @@ spec:
                   properties:
                     kerberos:
                       description: |-
-                        The [Kerberos provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_kerberos).
+                        The [Kerberos provider](https://docs.stackable.tech/home/25.11/concepts/authentication#_kerberos).
                         The Kerberos AuthenticationClass is used when users should authenticate themselves via
                         Kerberos.
                       properties:
@@ -62,8 +62,8 @@ spec:
                       type: object
                     ldap:
                       description: |-
-                        The [LDAP provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_ldap).
-                        There is also the ["Authentication with LDAP" tutorial](https://docs.stackable.tech/home/nightly/tutorials/authentication_with_openldap)
+                        The [LDAP provider](https://docs.stackable.tech/home/25.11/concepts/authentication#_ldap).
+                        There is also the ["Authentication with LDAP" tutorial](https://docs.stackable.tech/home/25.11/tutorials/authentication_with_openldap)
                         where you can learn to configure Superset and Trino with OpenLDAP.
                       properties:
                         bindCredentials:
@@ -72,8 +72,8 @@ spec:
                           properties:
                             scope:
                               description: |-
-                                [Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the
-                                [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).
+                                [Scope](https://docs.stackable.tech/home/25.11/secret-operator/scope) of the
+                                [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass).
                               nullable: true
                               properties:
                                 listenerVolumes:
@@ -106,7 +106,7 @@ spec:
                                   type: array
                               type: object
                             secretClass:
-                              description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                              description: '[SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) containing the LDAP bind credentials.'
                               type: string
                           required:
                             - secretClass
@@ -187,7 +187,7 @@ spec:
                                       properties:
                                         secretClass:
                                           description: |-
-                                            Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate.
+                                            Name of the [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) which will provide the CA certificate.
                                             Note that a SecretClass does not need to have a key but can also work with just a CA certificate,
                                             so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
@@ -290,7 +290,7 @@ spec:
                                       properties:
                                         secretClass:
                                           description: |-
-                                            Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate.
+                                            Name of the [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) which will provide the CA certificate.
                                             Note that a SecretClass does not need to have a key but can also work with just a CA certificate,
                                             so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
@@ -314,7 +314,7 @@ spec:
                       type: object
                     static:
                       description: |-
-                        The [static provider](https://https://docs.stackable.tech/home/nightly/concepts/authentication#_static)
+                        The [static provider](https://https://docs.stackable.tech/home/25.11/concepts/authentication#_static)
                         is used to configure a static set of users, identified by username and password.
                       properties:
                         userCredentialsSecret:
@@ -334,15 +334,15 @@ spec:
                       type: object
                     tls:
                       description: |-
-                        The [TLS provider](https://docs.stackable.tech/home/nightly/concepts/authentication#_tls).
+                        The [TLS provider](https://docs.stackable.tech/home/25.11/concepts/authentication#_tls).
                         The TLS AuthenticationClass is used when users should authenticate themselves with a
                         TLS certificate.
                       properties:
                         clientCertSecretClass:
                           description: |-
-                            See [ADR017: TLS authentication](https://docs.stackable.tech/home/nightly/contributor/adr/adr017-tls_authentication).
+                            See [ADR017: TLS authentication](https://docs.stackable.tech/home/25.11/contributor/adr/adr017-tls_authentication).
                             If `client_cert_secret_class` is not set, the TLS settings may also be used for client authentication.
-                            If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass)
+                            If `client_cert_secret_class` is set, the [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass)
                             will be used to provision client certificates.
                           nullable: true
                           type: string
@@ -384,7 +384,7 @@ spec:
             spec:
               description: |-
                 S3 connection definition as a resource.
-                Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
+                Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/25.11/concepts/s3).
               properties:
                 accessStyle:
                   default: VirtualHosted
@@ -399,14 +399,14 @@ spec:
                 credentials:
                   description: |-
                     If the S3 uses authentication you have to specify you S3 credentials.
-                    In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass)
+                    In the most cases a [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass)
                     providing `accessKey` and `secretKey` is sufficient.
                   nullable: true
                   properties:
                     scope:
                       description: |-
-                        [Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the
-                        [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).
+                        [Scope](https://docs.stackable.tech/home/25.11/secret-operator/scope) of the
+                        [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass).
                       nullable: true
                       properties:
                         listenerVolumes:
@@ -439,7 +439,7 @@ spec:
                           type: array
                       type: object
                     secretClass:
-                      description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                      description: '[SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) containing the LDAP bind credentials.'
                       type: string
                   required:
                     - secretClass
@@ -498,7 +498,7 @@ spec:
                               properties:
                                 secretClass:
                                   description: |-
-                                    Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate.
+                                    Name of the [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) which will provide the CA certificate.
                                     Note that a SecretClass does not need to have a key but can also work with just a CA certificate,
                                     so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                   type: string
@@ -551,7 +551,7 @@ spec:
             spec:
               description: |-
                 S3 bucket specification containing the bucket name and an inlined or referenced connection specification.
-                Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
+                Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/25.11/concepts/s3).
               properties:
                 bucketName:
                   description: The name of the S3 bucket.
@@ -567,7 +567,7 @@ spec:
                     inline:
                       description: |-
                         S3 connection definition as a resource.
-                        Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/nightly/concepts/s3).
+                        Learn more on the [S3 concept documentation](https://docs.stackable.tech/home/25.11/concepts/s3).
                       properties:
                         accessStyle:
                           default: VirtualHosted
@@ -582,14 +582,14 @@ spec:
                         credentials:
                           description: |-
                             If the S3 uses authentication you have to specify you S3 credentials.
-                            In the most cases a [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass)
+                            In the most cases a [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass)
                             providing `accessKey` and `secretKey` is sufficient.
                           nullable: true
                           properties:
                             scope:
                               description: |-
-                                [Scope](https://docs.stackable.tech/home/nightly/secret-operator/scope) of the
-                                [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass).
+                                [Scope](https://docs.stackable.tech/home/25.11/secret-operator/scope) of the
+                                [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass).
                               nullable: true
                               properties:
                                 listenerVolumes:
@@ -622,7 +622,7 @@ spec:
                                   type: array
                               type: object
                             secretClass:
-                              description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                              description: '[SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) containing the LDAP bind credentials.'
                               type: string
                           required:
                             - secretClass
@@ -681,7 +681,7 @@ spec:
                                       properties:
                                         secretClass:
                                           description: |-
-                                            Name of the [SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) which will provide the CA certificate.
+                                            Name of the [SecretClass](https://docs.stackable.tech/home/25.11/secret-operator/secretclass) which will provide the CA certificate.
                                             Note that a SecretClass does not need to have a key but can also work with just a CA certificate,
                                             so if you got provided with a CA cert but don't have access to the key you can still use this method.
                                           type: string
