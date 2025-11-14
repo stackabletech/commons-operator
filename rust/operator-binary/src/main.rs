@@ -2,10 +2,9 @@
 // This will need changes in our and upstream error types.
 #![allow(clippy::large_enum_variant)]
 
-mod restart_controller;
-
+use anyhow::anyhow;
 use clap::Parser;
-use futures::FutureExt;
+use futures::{FutureExt, TryFutureExt};
 use stackable_operator::{
     YamlSchema as _,
     cli::{Command, RunArguments},
@@ -17,10 +16,17 @@ use stackable_operator::{
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
+use webhooks::create_webhook;
+
+mod restart_controller;
+mod webhooks;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
+
+pub const OPERATOR_NAME: &str = "commons.stackable.tech";
+pub const FIELD_MANAGER: &str = "commons-operator";
 
 #[derive(Parser)]
 #[clap(about, author)]
@@ -44,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Run(RunArguments {
             product_config: _,
             watch_namespace,
-            operator_environment: _,
+            operator_environment,
             maintenance,
             common,
         }) => {
@@ -76,12 +82,28 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+            let webhook = create_webhook(
+                &operator_environment,
+                // TODO: Make user configurable
+                false,
+                client.as_kube_client(),
+            )
+            .await?;
+            let webhook = webhook
+                .run()
+                .map_err(|err| anyhow!(err).context("failed to run webhook"));
+
             let sts_restart_controller =
                 restart_controller::statefulset::start(&client, &watch_namespace).map(anyhow::Ok);
             let pod_restart_controller =
                 restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
 
-            futures::try_join!(sts_restart_controller, pod_restart_controller, eos_checker)?;
+            futures::try_join!(
+                sts_restart_controller,
+                pod_restart_controller,
+                eos_checker,
+                webhook
+            )?;
         }
     }
 

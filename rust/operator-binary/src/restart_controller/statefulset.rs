@@ -13,9 +13,8 @@ use stackable_operator::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
     },
-    kube,
     kube::{
-        Resource, ResourceExt,
+        self, Resource, ResourceExt,
         api::{PartialObjectMeta, Patch, PatchParams},
         core::{DeserializeGuard, DynamicObject, error_boundary},
         runtime::{
