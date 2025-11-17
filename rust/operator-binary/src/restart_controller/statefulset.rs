@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, atomic::AtomicBool},
-    time::Duration,
-};
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
 use futures::{Stream, StreamExt, TryStream, stream};
 use serde_json::json;
@@ -31,19 +27,19 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
+use crate::utils::delayed_init::{DelayedInit, InitDropped, Initializer};
+
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
 
-struct Ctx {
-    kube: kube::Client,
-    cms: Store<PartialObjectMeta<ConfigMap>>,
-    cms_inited: Arc<AtomicBool>,
-    secrets: Store<PartialObjectMeta<Secret>>,
-    secrets_inited: Arc<AtomicBool>,
+pub struct Ctx {
+    client: Client,
+    cms: DelayedInit<Store<PartialObjectMeta<ConfigMap>>>,
+    secrets: DelayedInit<Store<PartialObjectMeta<Secret>>>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(IntoStaticStr))]
-enum Error {
+pub enum Error {
     #[snafu(display("StatefulSet object is invalid"))]
     InvalidStatefulSet {
         source: error_boundary::InvalidObject,
@@ -55,11 +51,11 @@ enum Error {
         obj_ref: Box<ObjectRef<DynamicObject>>,
     },
 
-    #[snafu(display("configmaps were not yet loaded"))]
-    ConfigMapsUninitialized,
+    #[snafu(display("configmap initializer was cancelled"))]
+    ConfigMapsUninitialized { source: InitDropped },
 
-    #[snafu(display("secrets were not yet loaded"))]
-    SecretsUninitialized,
+    #[snafu(display("secrets initializer was cancelled"))]
+    SecretsUninitialized { source: InitDropped },
 }
 
 impl ReconcilerError for Error {
@@ -69,25 +65,49 @@ impl ReconcilerError for Error {
 
     fn secondary_object(&self) -> Option<ObjectRef<DynamicObject>> {
         match self {
-            Error::InvalidStatefulSet { source: _ } => None,
+            Error::InvalidStatefulSet { .. } => None,
             Error::PatchFailed { obj_ref, .. } => Some(*obj_ref.clone()),
-            Error::ConfigMapsUninitialized => None,
-            Error::SecretsUninitialized => None,
+            Error::ConfigMapsUninitialized { .. } => None,
+            Error::SecretsUninitialized { .. } => None,
         }
     }
 }
 
-pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
-    let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(client);
-    let cms = watch_namespace.get_api::<ConfigMap>(client);
-    let secrets = watch_namespace.get_api::<Secret>(client);
+pub fn create_context(
+    client: Client,
+) -> (
+    Arc<Ctx>,
+    Initializer<Store<PartialObjectMeta<ConfigMap>>>,
+    Initializer<Store<PartialObjectMeta<Secret>>>,
+) {
+    let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
+    let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
+    let ctx = Arc::new(Ctx {
+        client,
+        cms: cm_store_delayed,
+        secrets: secret_store_delayed,
+    });
+
+    (ctx, cm_store_tx, secret_store_tx)
+}
+
+pub async fn start(
+    ctx: Arc<Ctx>,
+    cm_store_tx: Initializer<Store<PartialObjectMeta<ConfigMap>>>,
+    secret_store_tx: Initializer<Store<PartialObjectMeta<Secret>>>,
+    watch_namespace: &WatchNamespace,
+) {
+    let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(&ctx.client);
+    let cms = watch_namespace.get_api::<ConfigMap>(&ctx.client);
+    let secrets = watch_namespace.get_api::<Secret>(&ctx.client);
     let sts_store = reflector::store::Writer::<DeserializeGuard<StatefulSet>>::new(());
     let cm_store = reflector::store::Writer::<PartialObjectMeta<ConfigMap>>::new(());
     let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
-    let cms_inited = Arc::new(AtomicBool::from(false));
-    let secrets_inited = Arc::new(AtomicBool::from(false));
+    let mut cm_store_tx = Some(cm_store_tx);
+    let mut secret_store_tx = Some(secret_store_tx);
+    let ctx2 = ctx.clone();
     let event_recorder = Arc::new(Recorder::new(
-        client.as_kube_client(),
+        ctx.client.as_kube_client(),
         Reporter {
             controller: FULL_CONTROLLER_NAME.to_string(),
             instance: None,
@@ -97,29 +117,37 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     applier(
         |sts, ctx| Box::pin(reconcile(sts, ctx)),
         error_policy,
-        Arc::new(Ctx {
-            kube: client.as_kube_client(),
-            cms: cm_store.as_reader(),
-            secrets: secret_store.as_reader(),
-            cms_inited: cms_inited.clone(),
-            secrets_inited: secrets_inited.clone(),
-        }),
+        ctx2,
         sts_store.as_reader(),
         stream::select(
             stream::select(
                 trigger_all(
-                    reflector(cm_store, metadata_watcher(cms, watcher::Config::default()))
-                        .inspect(|_| cms_inited.store(true, std::sync::atomic::Ordering::SeqCst))
-                        .touched_objects(),
+                    {
+                        let cm_reader = cm_store.as_reader();
+                        reflector(cm_store, metadata_watcher(cms, watcher::Config::default()))
+                            .inspect(move |_| {
+                                if let Some(tx) = cm_store_tx.take() {
+                                    tx.init(cm_reader.clone());
+                                }
+                            })
+                            .touched_objects()
+                    },
                     sts_store.as_reader(),
                 ),
                 trigger_all(
-                    reflector(
-                        secret_store,
-                        metadata_watcher(secrets, watcher::Config::default()),
-                    )
-                    .inspect(|_| secrets_inited.store(true, std::sync::atomic::Ordering::SeqCst))
-                    .touched_objects(),
+                    {
+                        let secret_reader = secret_store.as_reader();
+                        reflector(
+                            secret_store,
+                            metadata_watcher(secrets, watcher::Config::default()),
+                        )
+                        .inspect(move |_| {
+                            if let Some(tx) = secret_store_tx.take() {
+                                tx.init(secret_reader.clone());
+                            }
+                        })
+                        .touched_objects()
+                    },
                     sts_store.as_reader(),
                 ),
             ),
@@ -193,24 +221,10 @@ fn find_pod_refs<'a, K: Resource + 'a>(
         .chain(container_env_from_refs)
 }
 
-async fn reconcile(
-    sts: Arc<DeserializeGuard<StatefulSet>>,
+pub async fn get_updated_restarter_annotations(
+    sts: &StatefulSet,
     ctx: Arc<Ctx>,
-) -> Result<Action, Error> {
-    tracing::info!("Starting reconcile");
-    let sts = sts
-        .0
-        .as_ref()
-        .map_err(error_boundary::InvalidObject::clone)
-        .context(InvalidStatefulSetSnafu)?;
-
-    if !ctx.cms_inited.load(std::sync::atomic::Ordering::SeqCst) {
-        return ConfigMapsUninitializedSnafu.fail();
-    }
-    if !ctx.secrets_inited.load(std::sync::atomic::Ordering::SeqCst) {
-        return SecretsUninitializedSnafu.fail();
-    }
-
+) -> Result<BTreeMap<String, String>, Error> {
     let ns = sts.metadata.namespace.as_deref().unwrap();
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
@@ -245,23 +259,20 @@ async fn reconcile(
             )
         })
         .map(|cm_ref| cm_ref.within(ns));
-    annotations.extend(
-        cm_refs
-            .flat_map(|cm_ref| ctx.cms.get(&cm_ref))
-            .flat_map(|cm| {
-                Some((
-                    format!(
-                        "configmap.restarter.stackable.tech/{}",
-                        cm.metadata.name.as_ref()?
-                    ),
-                    format!(
-                        "{}/{}",
-                        cm.metadata.uid.as_ref()?,
-                        cm.metadata.resource_version.as_ref()?
-                    ),
-                ))
-            }),
-    );
+    let cms = ctx.cms.get().await.context(ConfigMapsUninitializedSnafu)?;
+    annotations.extend(cm_refs.flat_map(|cm_ref| cms.get(&cm_ref)).flat_map(|cm| {
+        Some((
+            format!(
+                "configmap.restarter.stackable.tech/{}",
+                cm.metadata.name.as_ref()?
+            ),
+            format!(
+                "{}/{}",
+                cm.metadata.uid.as_ref()?,
+                cm.metadata.resource_version.as_ref()?
+            ),
+        ))
+    }));
     let secret_refs = pod_specs
         .flat_map(|pod_spec| {
             find_pod_refs(
@@ -284,9 +295,10 @@ async fn reconcile(
             )
         })
         .map(|secret_ref| secret_ref.within(ns));
+    let secrets = ctx.secrets.get().await.context(SecretsUninitializedSnafu)?;
     annotations.extend(
         secret_refs
-            .flat_map(|secret_ref| ctx.secrets.get(&secret_ref))
+            .flat_map(|secret_ref| secrets.get(&secret_ref))
             .flat_map(|cm| {
                 Some((
                     format!(
@@ -301,7 +313,22 @@ async fn reconcile(
                 ))
             }),
     );
-    let stses = kube::Api::<StatefulSet>::namespaced(ctx.kube.clone(), ns);
+    Ok(annotations)
+}
+
+async fn reconcile(
+    sts: Arc<DeserializeGuard<StatefulSet>>,
+    ctx: Arc<Ctx>,
+) -> Result<Action, Error> {
+    tracing::info!("Starting reconcile");
+    let sts = sts
+        .0
+        .as_ref()
+        .map_err(error_boundary::InvalidObject::clone)
+        .context(InvalidStatefulSetSnafu)?;
+    let ns = sts.metadata.namespace.as_deref().unwrap();
+
+    let stses = kube::Api::<StatefulSet>::namespaced(ctx.client.as_kube_client(), ns);
     stses
         .patch(
             &sts.name_unchecked(),
@@ -323,7 +350,7 @@ async fn reconcile(
                     "spec": {
                         "template": {
                             "metadata": {
-                                "annotations": annotations,
+                                "annotations": get_updated_restarter_annotations(&sts, ctx).await?,
                             },
                         },
                     },

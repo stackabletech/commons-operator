@@ -1,5 +1,6 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
+use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
@@ -22,7 +23,10 @@ use stackable_operator::{
     webhook::{WebhookError, WebhookOptions, WebhookServer, servers::MutatingWebhookServer},
 };
 
-use crate::{FIELD_MANAGER, OPERATOR_NAME};
+use crate::{
+    FIELD_MANAGER, OPERATOR_NAME,
+    restart_controller::statefulset::{Ctx, get_updated_restarter_annotations},
+};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -31,13 +35,15 @@ pub enum Error {
 }
 
 pub async fn create_webhook<'a>(
+    ctx: Arc<Ctx>,
     operator_environment: &'a OperatorEnvironmentOptions,
     disable_mutating_webhook_configuration_maintenance: bool,
     client: Client,
 ) -> Result<WebhookServer, Error> {
     let mutating_webhook_server = MutatingWebhookServer::new(
         get_mutating_webhook_configuration(),
-        foo,
+        add_sts_restarter_annotation,
+        ctx,
         disable_mutating_webhook_configuration_maintenance,
         client,
         FIELD_MANAGER.to_owned(),
@@ -90,9 +96,7 @@ fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
             // Worst case the annotations are missing cause a restart of Pod 0, basically the same
             // behavior which we had for years.
             // See https://github.com/stackabletech/commons-operator/issues/111 for details
-            // failure_policy: Some("Ignore".to_owned()),
-            // TEMP for testing
-            failure_policy: Some("Fail".to_owned()),
+            failure_policy: Some("Ignore".to_owned()),
             // It could be the case that other mutating webhooks add more ConfigMpa/Secret mounts,
             // in which case it would be nice if we detect that.
             reinvocation_policy: Some("IfNeeded".to_owned()),
@@ -103,14 +107,68 @@ fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
     }
 }
 
-fn foo(request: AdmissionRequest<StatefulSet>) -> AdmissionResponse {
+async fn add_sts_restarter_annotation(
+    ctx: Arc<Ctx>,
+    request: AdmissionRequest<StatefulSet>,
+) -> AdmissionResponse {
     let Some(sts) = &request.object else {
         return AdmissionResponse::invalid(
             "object (of type StatefulSet) missing - for operation CREATE it must be always present",
         );
     };
 
-    dbg!(&request);
+    let mut paths_to_be_created = vec![];
+    let spec = sts.spec.as_ref();
+    if spec.is_none() {
+        paths_to_be_created.push("/spec");
+    }
+    let metadata = spec.and_then(|spec| spec.template.metadata.as_ref());
+    if metadata.is_none() {
+        paths_to_be_created.push("/spec/template/metadata");
+    }
+    let annotations = metadata.and_then(|metadata| metadata.annotations.as_ref());
+    if annotations.is_none() {
+        paths_to_be_created.push("/spec/template/metadata/annotations");
+    }
+    let create_paths = paths_to_be_created.into_iter().map(|path| {
+        PatchOperation::Add(AddOperation {
+            path: PointerBuf::parse(path).expect("hard-coded annotation paths are valid"),
+            value: serde_json::Value::Object(serde_json::Map::new()),
+        })
+    });
 
-    AdmissionResponse::from(&request)
+    let annotations = match get_updated_restarter_annotations(&sts, ctx).await {
+        Ok(annotations) => annotations,
+        Err(err) => {
+            return AdmissionResponse::invalid(format!(
+                "failed to get updated restarted annotations: {err:#}"
+            ));
+        }
+    };
+
+    let add_annotations = annotations.iter().map(|(k, v)| {
+        PatchOperation::Add(AddOperation {
+            path: PointerBuf::from_tokens([
+                "spec",
+                "template",
+                "metadata",
+                "annotations",
+                // It's totally fine (and even expected) that the annotations contains slashes ("/"),
+                // as `PointerBuf::from_tokens` escapes them
+                k,
+            ]),
+            value: serde_json::Value::String(v.to_owned()),
+        })
+    });
+
+    match AdmissionResponse::from(&request)
+        .with_patch(Patch(create_paths.chain(add_annotations).collect()))
+    {
+        Ok(response) => response,
+        Err(err) => {
+            return AdmissionResponse::invalid(format!(
+                "failed to add patch to AdmissionResponse: {err:#}"
+            ));
+        }
+    }
 }

@@ -5,6 +5,7 @@
 use anyhow::anyhow;
 use clap::Parser;
 use futures::{FutureExt, TryFutureExt};
+use restart_controller::statefulset::create_context;
 use stackable_operator::{
     YamlSchema as _,
     cli::{Command, RunArguments},
@@ -19,6 +20,7 @@ use stackable_operator::{
 use webhooks::create_webhook;
 
 mod restart_controller;
+mod utils;
 mod webhooks;
 
 mod built_info {
@@ -82,7 +84,19 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+            let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
+            let sts_restart_controller = restart_controller::statefulset::start(
+                ctx.clone(),
+                cm_store_tx,
+                secret_store_tx,
+                &watch_namespace,
+            )
+            .map(anyhow::Ok);
+            let pod_restart_controller =
+                restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
+
             let webhook = create_webhook(
+                ctx,
                 &operator_environment,
                 // TODO: Make user configurable
                 false,
@@ -93,16 +107,11 @@ async fn main() -> anyhow::Result<()> {
                 .run()
                 .map_err(|err| anyhow!(err).context("failed to run webhook"));
 
-            let sts_restart_controller =
-                restart_controller::statefulset::start(&client, &watch_namespace).map(anyhow::Ok);
-            let pod_restart_controller =
-                restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
-
             futures::try_join!(
                 sts_restart_controller,
                 pod_restart_controller,
+                webhook,
                 eos_checker,
-                webhook
             )?;
         }
     }

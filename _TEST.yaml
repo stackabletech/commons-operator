@@ -1,3 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: nginx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  foo: bar
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config-2
+data:
+  foo: bar
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -32,31 +61,3 @@ spec:
         - name: config
           configMap:
             name: web-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx
-  labels:
-    app: nginx
-spec:
-  ports:
-  - port: 80
-    name: web
-  clusterIP: None
-  selector:
-    app: nginx
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: web-config
-data:
-  foo: bar
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: web-config-2
-data:
-  foo: bar
