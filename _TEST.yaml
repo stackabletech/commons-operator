@@ -49,14 +49,14 @@ spec:
         - name: nginx
           image: registry.k8s.io/nginx-slim:0.24
           ports:
-          - containerPort: 80
-            name: web
+            - containerPort: 80
+              name: web
           volumeMounts:
-          - name: config
-            mountPath: "/config"
+            - name: config
+              mountPath: "/config"
           envFrom:
-          - configMapRef:
-              name: web-config-2
+            - configMapRef:
+                name: web-config-2
       volumes:
         - name: config
           configMap:
