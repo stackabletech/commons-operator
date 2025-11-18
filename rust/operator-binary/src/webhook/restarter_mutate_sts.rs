@@ -129,9 +129,7 @@ pub async fn add_sts_restarter_annotation(
     {
         Ok(response) => response,
         Err(err) => {
-            AdmissionResponse::invalid(format!(
-                "failed to add patch to AdmissionResponse: {err:#}"
-            ))
+            AdmissionResponse::invalid(format!("failed to add patch to AdmissionResponse: {err:#}"))
         }
     }
 }
