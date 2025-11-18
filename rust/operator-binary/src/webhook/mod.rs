@@ -21,9 +21,9 @@ pub enum Error {
     CreateWebhookServer { source: WebhookError },
 }
 
-pub async fn create_webhook_server<'a>(
+pub async fn create_webhook_server(
     ctx: Arc<Ctx>,
-    operator_environment: &'a OperatorEnvironmentOptions,
+    operator_environment: &OperatorEnvironmentOptions,
     disable_restarter_mutating_webhook: bool,
     client: Client,
 ) -> Result<WebhookServer, Error> {

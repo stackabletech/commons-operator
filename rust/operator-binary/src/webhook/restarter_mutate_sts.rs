@@ -100,7 +100,7 @@ pub async fn add_sts_restarter_annotation(
         })
     });
 
-    let annotations = match get_updated_restarter_annotations(&sts, ctx).await {
+    let annotations = match get_updated_restarter_annotations(sts, ctx).await {
         Ok(annotations) => annotations,
         Err(err) => {
             return AdmissionResponse::invalid(format!(
@@ -129,9 +129,9 @@ pub async fn add_sts_restarter_annotation(
     {
         Ok(response) => response,
         Err(err) => {
-            return AdmissionResponse::invalid(format!(
+            AdmissionResponse::invalid(format!(
                 "failed to add patch to AdmissionResponse: {err:#}"
-            ));
+            ))
         }
     }
 }

@@ -73,6 +73,7 @@ impl ReconcilerError for Error {
     }
 }
 
+#[allow(clippy::type_complexity)]
 pub fn create_context(
     client: Client,
 ) -> (
@@ -350,7 +351,7 @@ async fn reconcile(
                     "spec": {
                         "template": {
                             "metadata": {
-                                "annotations": get_updated_restarter_annotations(&sts, ctx).await?,
+                                "annotations": get_updated_restarter_annotations(sts, ctx).await?,
                             },
                         },
                     },
