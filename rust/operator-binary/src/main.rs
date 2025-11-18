@@ -17,11 +17,11 @@ use stackable_operator::{
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
-use webhooks::create_webhook;
+use webhook::create_webhook;
 
 mod restart_controller;
 mod utils;
-mod webhooks;
+mod webhook;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -34,7 +34,20 @@ pub const FIELD_MANAGER: &str = "commons-operator";
 #[clap(about, author)]
 struct Opts {
     #[clap(subcommand)]
-    cmd: Command,
+    cmd: Command<CommonsOperatorRunArguments>,
+}
+
+#[derive(Debug, PartialEq, Eq, Parser)]
+pub struct CommonsOperatorRunArguments {
+    #[command(flatten)]
+    pub common: RunArguments,
+
+    /// Don't start the controller mutating webhook and maintain the MutatingWebhookConfiguration.
+    ///
+    /// The mutating webhook is used to prevent an unneeded restart of the first Pod of freshly
+    /// created StatefulSets. It can be turned off in case you can accept an unneeded Pod restart.
+    #[arg(long, env)]
+    pub disable_restarter_mutating_webhook: bool,
 }
 
 #[tokio::main]
@@ -49,12 +62,16 @@ async fn main() -> anyhow::Result<()> {
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
-        Command::Run(RunArguments {
-            product_config: _,
-            watch_namespace,
-            operator_environment,
-            maintenance,
-            common,
+        Command::Run(CommonsOperatorRunArguments {
+            common:
+                RunArguments {
+                    product_config: _,
+                    watch_namespace,
+                    operator_environment,
+                    maintenance,
+                    common,
+                },
+            disable_restarter_mutating_webhook,
         }) => {
             // NOTE (@NickLarsenNZ): Before stackable-telemetry was used:
             // - The console log level was set by `COMMONS_OPERATOR_LOG`, and is now `CONSOLE_LOG` (when using Tracing::pre_configured).
@@ -98,8 +115,7 @@ async fn main() -> anyhow::Result<()> {
             let webhook = create_webhook(
                 ctx,
                 &operator_environment,
-                // TODO: Make user configurable
-                false,
+                disable_restarter_mutating_webhook,
                 client.as_kube_client(),
             )
             .await?;

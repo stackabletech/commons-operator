@@ -1,10 +1,8 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
-use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
-    cli::OperatorEnvironmentOptions,
     k8s_openapi::{
         api::{
             admissionregistration::v1::{
@@ -15,51 +13,16 @@ use stackable_operator::{
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
-    kube::{
-        Client,
-        core::admission::{AdmissionRequest, AdmissionResponse},
-    },
+    kube::core::admission::{AdmissionRequest, AdmissionResponse},
     kvp::Label,
-    webhook::{WebhookError, WebhookOptions, WebhookServer, servers::MutatingWebhookServer},
 };
 
 use crate::{
-    FIELD_MANAGER, OPERATOR_NAME,
+    OPERATOR_NAME,
     restart_controller::statefulset::{Ctx, get_updated_restarter_annotations},
 };
 
-#[derive(Debug, Snafu)]
-pub enum Error {
-    #[snafu(display("failed to create webhook server"))]
-    CreateWebhookServer { source: WebhookError },
-}
-
-pub async fn create_webhook<'a>(
-    ctx: Arc<Ctx>,
-    operator_environment: &'a OperatorEnvironmentOptions,
-    disable_mutating_webhook_configuration_maintenance: bool,
-    client: Client,
-) -> Result<WebhookServer, Error> {
-    let mutating_webhook_server = MutatingWebhookServer::new(
-        get_mutating_webhook_configuration(),
-        add_sts_restarter_annotation,
-        ctx,
-        disable_mutating_webhook_configuration_maintenance,
-        client,
-        FIELD_MANAGER.to_owned(),
-    );
-
-    let webhook_options = WebhookOptions {
-        socket_addr: WebhookServer::DEFAULT_SOCKET_ADDRESS,
-        operator_namespace: operator_environment.operator_namespace.to_owned(),
-        operator_service_name: operator_environment.operator_service_name.to_owned(),
-    };
-    WebhookServer::new(webhook_options, vec![Box::new(mutating_webhook_server)])
-        .await
-        .context(CreateWebhookServerSnafu)
-}
-
-fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
+pub fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
     let webhook_name = "restarter-sts-enricher.stackable.tech";
     let metadata = ObjectMetaBuilder::new()
         .name(webhook_name)
@@ -107,7 +70,7 @@ fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
     }
 }
 
-async fn add_sts_restarter_annotation(
+pub async fn add_sts_restarter_annotation(
     ctx: Arc<Ctx>,
     request: AdmissionRequest<StatefulSet>,
 ) -> AdmissionResponse {
