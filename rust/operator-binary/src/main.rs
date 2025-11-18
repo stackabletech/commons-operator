@@ -17,7 +17,7 @@ use stackable_operator::{
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
-use webhook::create_webhook;
+use webhook::create_webhook_server;
 
 mod restart_controller;
 mod utils;
@@ -112,21 +112,21 @@ async fn main() -> anyhow::Result<()> {
             let pod_restart_controller =
                 restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
 
-            let webhook = create_webhook(
+            let webhook_server = create_webhook_server(
                 ctx,
                 &operator_environment,
                 disable_restarter_mutating_webhook,
                 client.as_kube_client(),
             )
             .await?;
-            let webhook = webhook
+            let webhook_server = webhook_server
                 .run()
                 .map_err(|err| anyhow!(err).context("failed to run webhook"));
 
             futures::try_join!(
                 sts_restart_controller,
                 pod_restart_controller,
-                webhook,
+                webhook_server,
                 eos_checker,
             )?;
         }
