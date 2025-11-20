@@ -22,7 +22,7 @@ use crate::{
     restart_controller::statefulset::{Ctx, get_updated_restarter_annotations},
 };
 
-pub fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
+pub fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
     let webhook_name = "restarter-sts-enricher.stackable.tech";
     let metadata = ObjectMetaBuilder::new()
         .name(webhook_name)
@@ -56,21 +56,26 @@ pub fn get_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
             }),
             // Will be set by the stackable_webhook code
             client_config: WebhookClientConfig::default(),
-            // Worst case the annotations are missing cause a restart of Pod 0, basically the same
-            // behavior which we had for years.
+            // Worst case if the annotations are missing they cause a restart of Pod 0, basically
+            // the same behavior which we had for years.
             // See https://github.com/stackabletech/commons-operator/issues/111 for details
             failure_policy: Some("Ignore".to_owned()),
-            // It could be the case that other mutating webhooks add more ConfigMpa/Secret mounts,
+            // It could be the case that other mutating webhooks add more ConfigMap/Secret mounts,
             // in which case it would be nice if we detect that.
             reinvocation_policy: Some("IfNeeded".to_owned()),
-            // We don't have side effects
+            // > Webhooks typically operate only on the content of the AdmissionReview sent to them.
+            // > Some webhooks, however, make out-of-band changes as part of processing admission requests.
+            //
+            // We read in the state of the world using the ConfigMap and Secret store.
+            // So, technically our outcome depends on external factors, *but* this webhook is not
+            // creating any external objects, so from our understanding it's side-effect free.
             side_effects: "None".to_owned(),
             ..Default::default()
         }]),
     }
 }
 
-pub async fn add_sts_restarter_annotation(
+pub async fn add_sts_restarter_annotations_handler(
     ctx: Arc<Ctx>,
     request: AdmissionRequest<StatefulSet>,
 ) -> AdmissionResponse {

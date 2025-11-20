@@ -226,7 +226,9 @@ pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
 ) -> Result<BTreeMap<String, String>, Error> {
-    let ns = sts.metadata.namespace.as_deref().unwrap();
+    let ns = sts.metadata.namespace.as_deref().expect(
+        "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
+    );
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
         .spec
