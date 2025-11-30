@@ -42,7 +42,7 @@ enum Error {
     #[snafu(display(
         "failed to parse expiry timestamp annotation ({annotation:?}: {value:?}) as RFC 3999"
     ))]
-    UnparseableExpiryTimestamp {
+    UnparsableExpiryTimestamp {
         source: chrono::ParseError,
         annotation: String,
         value: String,
@@ -60,7 +60,7 @@ impl ReconcilerError for Error {
         match self {
             Error::PodHasNoName => None,
             Error::PodHasNoNamespace => None,
-            Error::UnparseableExpiryTimestamp {
+            Error::UnparsableExpiryTimestamp {
                 source: _,
                 annotation: _,
                 value: _,
@@ -73,6 +73,8 @@ impl ReconcilerError for Error {
 pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
     let controller = Controller::new(
         watch_namespace.get_api::<PartialObjectMeta<Pod>>(client),
+        // TODO: Can we only watch a subset of Pods with a specify label, e.g.
+        // vendor=Stackable to reduce the memory footprint?
         watcher::Config::default(),
     );
     let event_recorder = Arc::new(Recorder::new(
@@ -124,7 +126,7 @@ async fn reconcile(pod: Arc<PartialObjectMeta<Pod>>, ctx: Arc<Ctx>) -> Result<Ac
         .flatten()
         .filter(|(k, _)| k.starts_with("restarter.stackable.tech/expires-at."))
         .map(|(k, v)| {
-            DateTime::parse_from_rfc3339(v).context(UnparseableExpiryTimestampSnafu {
+            DateTime::parse_from_rfc3339(v).context(UnparsableExpiryTimestampSnafu {
                 annotation: k,
                 value: v,
             })
