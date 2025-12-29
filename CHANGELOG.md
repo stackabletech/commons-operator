@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Prevent Pod 0 restart by utilizing mutating webhook ([#387]).
+
+[#387]: https://github.com/stackabletech/commons-operator/pull/387
+
 ## [25.11.0] - 2025-11-07
 
 ## [25.11.0-rc1] - 2025-11-06
