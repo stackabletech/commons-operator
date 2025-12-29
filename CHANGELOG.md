@@ -6,9 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- BREAKING: Prevent Pod 0 restart by utilizing mutating webhook.
+- BREAKING: Prevent Pod 0 restart by utilizing a mutating webhook.
   The commons-operator now needs the RBAC permission to `create` and `patch`
-  `mutatingwebhookconfigurations`. Because of this, the webhook can be disabled using
+  `mutatingwebhookconfigurations`. The webhook can be disabled using
   `--disable-restarter-mutating-webhook` or by setting the `DISABLE_RESTARTER_MUTATING_WEBHOOK`
   env variable ([#387]).
 
