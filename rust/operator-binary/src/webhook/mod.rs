@@ -9,7 +9,7 @@ use stackable_operator::{
     kube::Client,
     webhook::{
         WebhookServer, WebhookServerError, WebhookServerOptions,
-        webhooks::{MutatingWebhook, Webhook},
+        webhooks::{MutatingWebhook, MutatingWebhookOptions, Webhook},
     },
 };
 
@@ -31,13 +31,17 @@ pub async fn create_webhook_server(
 ) -> Result<WebhookServer, Error> {
     let mut webhooks: Vec<Box<dyn Webhook>> = vec![];
     if !disable_restarter_mutating_webhook {
+        let mutating_webhook_options = MutatingWebhookOptions {
+            disable_mwc_maintenance: disable_restarter_mutating_webhook,
+            field_manager: FIELD_MANAGER.to_owned(),
+        };
+
         webhooks.push(Box::new(MutatingWebhook::new(
             get_sts_restarter_mutating_webhook_configuration(),
             add_sts_restarter_annotations_handler,
             ctx,
-            disable_restarter_mutating_webhook,
             client,
-            FIELD_MANAGER.to_owned(),
+            mutating_webhook_options,
         )));
     }
 
@@ -46,7 +50,7 @@ pub async fn create_webhook_server(
         webhook_namespace: operator_environment.operator_namespace.to_owned(),
         webhook_service_name: operator_environment.operator_service_name.to_owned(),
     };
-    WebhookServer::new(webhook_options, webhooks)
+    WebhookServer::new(webhooks, webhook_options)
         .await
         .context(CreateWebhookServerSnafu)
 }
