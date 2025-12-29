@@ -1,3 +1,4 @@
+---
 # Same situation as in 01-late-before-config.yaml, but this time the STS is created *after* the
 # mounted ConfigMaps, so no unneeded Pod restarts occur.
 

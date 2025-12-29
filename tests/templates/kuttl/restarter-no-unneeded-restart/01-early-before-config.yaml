@@ -1,3 +1,4 @@
+---
 # As the STS is created *before* the ConfigMap, even the mutating webhook can not prevent the first
 # Pod from being restarted.
 
