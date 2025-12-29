@@ -41,3 +41,4 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /config
+      terminationGracePeriodSeconds: 5

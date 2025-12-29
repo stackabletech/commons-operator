@@ -1,0 +1,59 @@
+# As the STS is created *before* the ConfigMap, even the mutating webhook can not prevent the first
+# Pod from being restarted.
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: early
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  selector:
+    matchLabels:
+      app: early
+  serviceName: early
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: early
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: nginx
+          image: registry.k8s.io/nginx-slim:0.24
+          volumeMounts:
+            - name: config
+              mountPath: "/config"
+          envFrom:
+            - configMapRef:
+                name: early-config-2
+      volumes:
+        - name: config
+          configMap:
+            name: early-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: early
+  labels:
+    app: early
+spec:
+  clusterIP: None
+  selector:
+    app: early
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: early-config
+data:
+  foo: bar
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: early-config-2
+data:
+  foo: bar
