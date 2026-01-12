@@ -45,7 +45,7 @@ pub fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConf
                 operations: Some(vec!["CREATE".to_owned()]),
                 scope: Some("Namespaced".to_owned()),
             }]),
-            // We only need to care about StatefulSets with the `restarter.stackable.tech/enabled``
+            // We only need to care about StatefulSets with the `restarter.stackable.tech/enabled`
             // label set to `true`.
             object_selector: Some(LabelSelector {
                 match_labels: Some(BTreeMap::from([(
