@@ -46,3 +46,10 @@ rules:
       - pods/eviction
     verbs:
       - create
+  # Required to maintain MutatingWebhookConfigurations. The operator needs to do this, as it needs
+  # to enter e.g. it's generated certificate in the webhooks.
+  - apiGroups: [admissionregistration.k8s.io]
+    resources: [mutatingwebhookconfigurations]
+    verbs:
+      - create
+      - patch

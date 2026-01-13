@@ -1,0 +1,60 @@
+---
+# Same situation as in 01-late-before-config.yaml, but this time the STS is created *after* the
+# mounted ConfigMaps, so no unneeded Pod restarts occur.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: late-config
+data:
+  foo: bar
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: late-config-2
+data:
+  foo: bar
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: late
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  selector:
+    matchLabels:
+      app: late
+  serviceName: late
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: late
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: nginx
+          image: registry.k8s.io/nginx-slim:0.24
+          volumeMounts:
+            - name: config
+              mountPath: "/config"
+          envFrom:
+            - configMapRef:
+                name: late-config-2
+      volumes:
+        - name: config
+          configMap:
+            name: late-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: late
+  labels:
+    app: late
+spec:
+  clusterIP: None
+  selector:
+    app: late

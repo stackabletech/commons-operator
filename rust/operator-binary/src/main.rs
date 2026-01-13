@@ -2,10 +2,10 @@
 // This will need changes in our and upstream error types.
 #![allow(clippy::large_enum_variant)]
 
-mod restart_controller;
-
+use anyhow::anyhow;
 use clap::Parser;
-use futures::FutureExt;
+use futures::{FutureExt, TryFutureExt};
+use restart_controller::statefulset::create_context;
 use stackable_operator::{
     YamlSchema as _,
     cli::{Command, RunArguments},
@@ -17,16 +17,37 @@ use stackable_operator::{
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
 };
+use webhook::create_webhook_server;
+
+mod restart_controller;
+mod utils;
+mod webhook;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
+pub const OPERATOR_NAME: &str = "commons.stackable.tech";
+pub const FIELD_MANAGER: &str = "commons-operator";
+
 #[derive(Parser)]
 #[clap(about, author)]
 struct Opts {
     #[clap(subcommand)]
-    cmd: Command,
+    cmd: Command<CommonsOperatorRunArguments>,
+}
+
+#[derive(Debug, PartialEq, Eq, Parser)]
+pub struct CommonsOperatorRunArguments {
+    #[command(flatten)]
+    pub common: RunArguments,
+
+    /// Don't start the controller mutating webhook and maintain the MutatingWebhookConfiguration.
+    ///
+    /// The mutating webhook is used to prevent an unneeded restart of the first Pod of freshly
+    /// created StatefulSets. It can be turned off in case you can accept an unneeded Pod restart.
+    #[arg(long, env)]
+    pub disable_restarter_mutating_webhook: bool,
 }
 
 #[tokio::main]
@@ -41,12 +62,16 @@ async fn main() -> anyhow::Result<()> {
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
-        Command::Run(RunArguments {
-            product_config: _,
-            watch_namespace,
-            operator_environment: _,
-            maintenance,
-            common,
+        Command::Run(CommonsOperatorRunArguments {
+            common:
+                RunArguments {
+                    product_config: _,
+                    watch_namespace,
+                    operator_environment,
+                    maintenance,
+                    common,
+                },
+            disable_restarter_mutating_webhook,
         }) => {
             // NOTE (@NickLarsenNZ): Before stackable-telemetry was used:
             // - The console log level was set by `COMMONS_OPERATOR_LOG`, and is now `CONSOLE_LOG` (when using Tracing::pre_configured).
@@ -76,12 +101,34 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            let sts_restart_controller =
-                restart_controller::statefulset::start(&client, &watch_namespace).map(anyhow::Ok);
+            let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
+            let sts_restart_controller = restart_controller::statefulset::start(
+                ctx.clone(),
+                cm_store_tx,
+                secret_store_tx,
+                &watch_namespace,
+            )
+            .map(anyhow::Ok);
             let pod_restart_controller =
                 restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
 
-            futures::try_join!(sts_restart_controller, pod_restart_controller, eos_checker)?;
+            let webhook_server = create_webhook_server(
+                ctx,
+                &operator_environment,
+                disable_restarter_mutating_webhook,
+                client.as_kube_client(),
+            )
+            .await?;
+            let webhook_server = webhook_server
+                .run()
+                .map_err(|err| anyhow!(err).context("failed to run webhook"));
+
+            futures::try_join!(
+                sts_restart_controller,
+                pod_restart_controller,
+                webhook_server,
+                eos_checker,
+            )?;
         }
     }
 
