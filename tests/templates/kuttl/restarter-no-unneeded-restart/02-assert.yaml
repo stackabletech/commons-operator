@@ -1,22 +1,9 @@
 ---
-apiVersion: kuttl.dev/v1beta1
-kind: TestAssert
-timeout: 180
-commands:
-  - script: |
-      kubectl -n $NAMESPACE rollout status sts/late --timeout=5m
-
-      read n0 t0 n1 t1 n2 t2 < <(
-        kubectl -n $NAMESPACE get pod late-{0,1,2} \
-          -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.creationTimestamp}{" "}{end}'
-      )
-
-      if [[ "$t0" > "$t1" || "$t1" > "$t2" ]]; then
-        echo "ERROR: Pod creation order invalid:"
-        printf "  %s: %s\n  %s: %s\n  %s: %s\n" "$n0" "$t0" "$n1" "$t1" "$n2" "$t2"
-        exit 1
-      fi
-
-      echo "OK: Pod creation order verified:"
-      printf "  %s (%s)\n  %s (%s)\n  %s (%s)\n" "$n0" "$t0" "$n1" "$t1" "$n2" "$t2"
-      echo "  Asserted: $n0 <= $n1 <= $n2"
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: late
+  generation: 1
+status:
+  readyReplicas: 3
+  replicas: 3
