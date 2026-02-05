@@ -16,6 +16,7 @@ use stackable_operator::{
     eos::EndOfSupportChecker,
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
+    utils::signal::SignalWatcher,
 };
 use webhook::create_webhook_server;
 
@@ -90,9 +91,13 @@ async fn main() -> anyhow::Result<()> {
                 description = built_info::PKG_DESCRIPTION
             );
 
+            // Watches for the SIGTERM signal and sends a signal to all receivers, which gracefully
+            // shuts down all concurrent tasks below (EoS checker, controller).
+            let sigterm_watcher = SignalWatcher::sigterm()?;
+
             let eos_checker =
                 EndOfSupportChecker::new(built_info::BUILT_TIME_UTC, maintenance.end_of_support)?
-                    .run()
+                    .run(sigterm_watcher.handle())
                     .map(anyhow::Ok);
 
             let client = stackable_operator::client::initialize_operator(
@@ -107,10 +112,13 @@ async fn main() -> anyhow::Result<()> {
                 cm_store_tx,
                 secret_store_tx,
                 &watch_namespace,
+                sigterm_watcher.handle(),
             )
             .map(anyhow::Ok);
+
             let pod_restart_controller =
-                restart_controller::pod::start(&client, &watch_namespace).map(anyhow::Ok);
+                restart_controller::pod::start(&client, &watch_namespace, sigterm_watcher.handle())
+                    .map(anyhow::Ok);
 
             let webhook_server = create_webhook_server(
                 ctx,
@@ -119,8 +127,9 @@ async fn main() -> anyhow::Result<()> {
                 client.as_kube_client(),
             )
             .await?;
+
             let webhook_server = webhook_server
-                .run()
+                .run(sigterm_watcher.handle())
                 .map_err(|err| anyhow!(err).context("failed to run webhook"));
 
             futures::try_join!(

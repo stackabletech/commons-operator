@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use futures::StreamExt;
 use http::StatusCode;
@@ -70,7 +70,10 @@ impl ReconcilerError for Error {
     }
 }
 
-pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
+pub async fn start<F>(client: &Client, watch_namespace: &WatchNamespace, shutdown_signal: F)
+where
+    F: Future<Output = ()> + Send + Sync + 'static,
+{
     let controller = Controller::new(
         watch_namespace.get_api::<PartialObjectMeta<Pod>>(client),
         // TODO: Can we only watch a subset of Pods with a specify label, e.g.
@@ -85,6 +88,7 @@ pub async fn start(client: &Client, watch_namespace: &WatchNamespace) {
         },
     ));
     controller
+        .graceful_shutdown_on(shutdown_signal)
         .run(
             reconcile,
             error_policy,

@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, future::Future, sync::Arc, time::Duration};
 
 use futures::{Stream, StreamExt, TryStream, stream};
 use serde_json::json;
@@ -92,12 +92,15 @@ pub fn create_context(
     (ctx, cm_store_tx, secret_store_tx)
 }
 
-pub async fn start(
+pub async fn start<F>(
     ctx: Arc<Ctx>,
     cm_store_tx: Initializer<Store<PartialObjectMeta<ConfigMap>>>,
     secret_store_tx: Initializer<Store<PartialObjectMeta<Secret>>>,
     watch_namespace: &WatchNamespace,
-) {
+    shutdown_signal: F,
+) where
+    F: Future<Output = ()>,
+{
     let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(&ctx.client);
     let cms = watch_namespace.get_api::<ConfigMap>(&ctx.client);
     let secrets = watch_namespace.get_api::<Secret>(&ctx.client);
@@ -163,7 +166,10 @@ pub async fn start(
                 .applied_objects(),
                 (),
             ),
-        ),
+        )
+        // This uses the same mechanism as kube's Controller does under the hood, see
+        // https://github.com/kube-rs/kube/blob/8bcdcb52e1e13c1c1ec59f6118fbed575ac10a4b/kube-runtime/src/controller/mod.rs#L1671
+        .take_until(shutdown_signal),
         Config::default(),
     )
     // We can let the reporting happen in the background
