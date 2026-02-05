@@ -296,9 +296,9 @@ checksum = "5dd9dc738b7a8311c7ade152424974d8115f2cdad61e8dab8dac9f2362298510"
 
 [[package]]
 name = "bytes"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
+checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "cc"
@@ -1003,9 +1003,9 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.20.3"
+version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2b37e2f62729cdada11f0e6b3b6fe383c69c29fc619e391223e12856af308c"
+checksum = "7b88256088d75a56f8ecfa070513a775dd9107f6530ef14919dac831af9cfe2b"
 dependencies = [
  "bitflags",
  "libc",
@@ -1487,9 +1487,9 @@ dependencies = [
 
 [[package]]
 name = "k8s-openapi"
-version = "0.26.1"
+version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06d9e5e61dd037cdc51da0d7e2b2be10f497478ea7e120d85dad632adb99882b"
+checksum = "d13f06d5326a915becaffabdfab75051b8cdc260c2a5c06c0e90226ede89a692"
 dependencies = [
  "base64",
  "chrono",
@@ -1501,7 +1501,7 @@ dependencies = [
 [[package]]
 name = "k8s-version"
 version = "0.1.3"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "darling 0.23.0",
  "regex",
@@ -2780,7 +2780,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 [[package]]
 name = "stackable-certs"
 version = "0.4.0"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "const-oid",
  "ecdsa",
@@ -2822,8 +2822,8 @@ dependencies = [
 
 [[package]]
 name = "stackable-operator"
-version = "0.101.1"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+version = "0.105.0"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "chrono",
  "clap",
@@ -2862,7 +2862,7 @@ dependencies = [
 [[package]]
 name = "stackable-operator-derive"
 version = "0.3.1"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "darling 0.23.0",
  "proc-macro2",
@@ -2873,7 +2873,7 @@ dependencies = [
 [[package]]
 name = "stackable-shared"
 version = "0.0.3"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "chrono",
  "k8s-openapi",
@@ -2890,7 +2890,7 @@ dependencies = [
 [[package]]
 name = "stackable-telemetry"
 version = "0.6.1"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "axum",
  "clap",
@@ -2914,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "stackable-versioned"
 version = "0.8.3"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "schemars",
  "serde",
@@ -2927,7 +2927,7 @@ dependencies = [
 [[package]]
 name = "stackable-versioned-macros"
 version = "0.8.3"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "convert_case",
  "darling 0.23.0",
@@ -2943,8 +2943,8 @@ dependencies = [
 
 [[package]]
 name = "stackable-webhook"
-version = "0.8.0"
-source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.101.1#bac8ff44653d477deda650fbd5f690af042df6c2"
+version = "0.9.0"
+source = "git+https://github.com/stackabletech/operator-rs.git?tag=stackable-operator-0.105.0#7bfcac5f6515c8b4c8cf8def2edfde5ed8621aaa"
 dependencies = [
  "arc-swap",
  "async-trait",

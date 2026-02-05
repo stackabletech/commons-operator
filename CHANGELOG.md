@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#396]).
+
 ### Fixed
 
 - BREAKING: Prevent Pod 0 restart by utilizing a mutating webhook.
@@ -13,6 +17,7 @@ All notable changes to this project will be documented in this file.
   env variable ([#387]).
 
 [#387]: https://github.com/stackabletech/commons-operator/pull/387
+[#396]: https://github.com/stackabletech/commons-operator/pull/396
 
 ## [25.11.0] - 2025-11-07
 
