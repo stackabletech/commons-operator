@@ -12,6 +12,7 @@ publish = false
 stackable-operator.workspace = true
 
 anyhow.workspace = true
+chrono.workspace = true
 clap.workspace = true
 http.workspace = true
 futures.workspace = true
