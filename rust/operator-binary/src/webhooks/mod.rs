@@ -1,20 +1,15 @@
 use std::sync::Arc;
 
-use restarter_mutate_sts::{
-    add_sts_restarter_annotations_handler, get_sts_restarter_mutating_webhook_configuration,
-};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     kube::Client,
-    webhook::{
-        WebhookServer, WebhookServerError, WebhookServerOptions,
-        webhooks::{MutatingWebhook, MutatingWebhookOptions, Webhook},
-    },
+    webhook::{WebhookServer, WebhookServerError, WebhookServerOptions, webhooks::Webhook},
 };
 
-use crate::{FIELD_MANAGER, restart_controller::statefulset::Ctx};
+use crate::restart_controller::statefulset::Ctx;
 
+mod conversion;
 mod restarter_mutate_sts;
 
 #[derive(Debug, Snafu)]
@@ -27,23 +22,22 @@ pub async fn create_webhook_server(
     ctx: Arc<Ctx>,
     operator_environment: &OperatorEnvironmentOptions,
     disable_restarter_mutating_webhook: bool,
+    disable_crd_maintenance: bool,
     client: Client,
 ) -> Result<WebhookServer, Error> {
     let mut webhooks: Vec<Box<dyn Webhook>> = vec![];
-    if !disable_restarter_mutating_webhook {
-        let mutating_webhook_options = MutatingWebhookOptions {
-            disable_mwc_maintenance: disable_restarter_mutating_webhook,
-            field_manager: FIELD_MANAGER.to_owned(),
-        };
 
-        webhooks.push(Box::new(MutatingWebhook::new(
-            get_sts_restarter_mutating_webhook_configuration(),
-            add_sts_restarter_annotations_handler,
-            ctx,
-            client,
-            mutating_webhook_options,
-        )));
+    if let Some(webhook) = restarter_mutate_sts::create_webhook(
+        ctx,
+        disable_restarter_mutating_webhook,
+        client.clone(),
+    ) {
+        webhooks.push(webhook);
     }
+
+    // TODO (@Techassi): The conversion webhook should also allow to be disabled, rework the
+    // granularity of these options.
+    webhooks.push(conversion::create_webhook(disable_crd_maintenance, client));
 
     let webhook_options = WebhookServerOptions {
         socket_addr: WebhookServer::DEFAULT_SOCKET_ADDRESS,
