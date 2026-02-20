@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, ops::Not, sync::Arc};
 
 use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
 use stackable_operator::{
@@ -13,16 +13,44 @@ use stackable_operator::{
         },
         apimachinery::pkg::apis::meta::v1::LabelSelector,
     },
-    kube::core::admission::{AdmissionRequest, AdmissionResponse},
+    kube::{
+        Client,
+        core::admission::{AdmissionRequest, AdmissionResponse},
+    },
     kvp::Label,
+    webhook::webhooks::{MutatingWebhookOptions, Webhook},
 };
 
 use crate::{
-    OPERATOR_NAME,
+    FIELD_MANAGER, OPERATOR_NAME,
     restart_controller::statefulset::{Ctx, get_updated_restarter_annotations},
 };
 
-pub fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
+pub fn create_webhook(
+    ctx: Arc<Ctx>,
+    disable_restarter_mutating_webhook: bool,
+    client: Client,
+) -> Option<Box<impl Webhook>> {
+    disable_restarter_mutating_webhook.not().then(|| {
+        let mutating_webhook_options = MutatingWebhookOptions {
+            // TODO (@Techassi): Make disabling webhooks and maintenance options more granular.
+            // NOTE: Technically this can never not be "false", so we could hard-code it. I'll leave
+            // it as is for now.
+            disable_mwc_maintenance: disable_restarter_mutating_webhook,
+            field_manager: FIELD_MANAGER.to_owned(),
+        };
+
+        Box::new(stackable_operator::webhook::webhooks::MutatingWebhook::new(
+            get_sts_restarter_mutating_webhook_configuration(),
+            add_sts_restarter_annotations_handler,
+            ctx,
+            client,
+            mutating_webhook_options,
+        ))
+    })
+}
+
+fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfiguration {
     let webhook_name = "restarter-sts-enricher.stackable.tech";
     let metadata = ObjectMetaBuilder::new()
         .name(webhook_name)
@@ -75,7 +103,7 @@ pub fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConf
     }
 }
 
-pub async fn add_sts_restarter_annotations_handler(
+async fn add_sts_restarter_annotations_handler(
     ctx: Arc<Ctx>,
     request: AdmissionRequest<StatefulSet>,
 ) -> AdmissionResponse {

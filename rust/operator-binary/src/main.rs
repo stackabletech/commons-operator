@@ -18,11 +18,11 @@ use stackable_operator::{
     telemetry::Tracing,
     utils::signal::SignalWatcher,
 };
-use webhook::create_webhook_server;
+use webhooks::create_webhook_server;
 
 mod restart_controller;
 mod utils;
-mod webhook;
+mod webhooks;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -124,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
                 ctx,
                 &operator_environment,
                 disable_restarter_mutating_webhook,
+                maintenance.disable_crd_maintenance,
                 client.as_kube_client(),
             )
             .await?;
