@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Add conversion webhook ([#400]).
+
 ### Changed
 
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#396]).
@@ -18,6 +22,7 @@ All notable changes to this project will be documented in this file.
 
 [#387]: https://github.com/stackabletech/commons-operator/pull/387
 [#396]: https://github.com/stackabletech/commons-operator/pull/396
+[#400]: https://github.com/stackabletech/commons-operator/pull/400
 
 ## [25.11.0] - 2025-11-07
 
