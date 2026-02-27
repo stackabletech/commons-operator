@@ -32,6 +32,7 @@ compile-chart: version crds config
 
 chart-clean:
 	rm -rf "deploy/helm/${OPERATOR_NAME}/configs"
+	rm -rf "deploy/helm/${OPERATOR_NAME}/crds"
 
 version:
 	cat "deploy/helm/${OPERATOR_NAME}/Chart.yaml" | yq ".version = \"${VERSION}\" | .appVersion = \"${VERSION}\"" > "deploy/helm/${OPERATOR_NAME}/Chart.yaml.new"
