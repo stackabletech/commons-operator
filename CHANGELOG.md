@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to 0.106.2, and strum to 0.28 ([#401]).
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#396]).
 
 ### Fixed
@@ -23,6 +24,7 @@ All notable changes to this project will be documented in this file.
 [#387]: https://github.com/stackabletech/commons-operator/pull/387
 [#396]: https://github.com/stackabletech/commons-operator/pull/396
 [#400]: https://github.com/stackabletech/commons-operator/pull/400
+[#401]: https://github.com/stackabletech/commons-operator/pull/401
 
 ## [25.11.0] - 2025-11-07
 
