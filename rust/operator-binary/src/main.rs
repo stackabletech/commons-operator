@@ -107,21 +107,9 @@ async fn main() -> anyhow::Result<()> {
             .await?;
 
             let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
-            let sts_restart_controller = restart_controller::statefulset::start(
+
+            let (webhook_server, initial_reconcile_rx) = create_webhook_server(
                 ctx.clone(),
-                cm_store_tx,
-                secret_store_tx,
-                &watch_namespace,
-                sigterm_watcher.handle(),
-            )
-            .map(anyhow::Ok);
-
-            let pod_restart_controller =
-                restart_controller::pod::start(&client, &watch_namespace, sigterm_watcher.handle())
-                    .map(anyhow::Ok);
-
-            let webhook_server = create_webhook_server(
-                ctx,
                 &operator_environment,
                 disable_restarter_mutating_webhook,
                 maintenance.disable_crd_maintenance,
@@ -129,13 +117,38 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+            // Multiply initial reconcile signal for the STS and pod restart controllers.
+            let initial_reconcile_signal = SignalWatcher::new(initial_reconcile_rx.map(|_| ()));
+
+            let delayed_sts_restart_controller = async {
+                initial_reconcile_signal.handle().await;
+
+                restart_controller::statefulset::start(
+                    ctx,
+                    cm_store_tx,
+                    secret_store_tx,
+                    &watch_namespace,
+                    sigterm_watcher.handle(),
+                )
+                .await
+            }
+            .map(anyhow::Ok);
+
+            let delayed_pod_restart_controller = async {
+                initial_reconcile_signal.handle().await;
+
+                restart_controller::pod::start(&client, &watch_namespace, sigterm_watcher.handle())
+                    .await
+            }
+            .map(anyhow::Ok);
+
             let webhook_server = webhook_server
                 .run(sigterm_watcher.handle())
                 .map_err(|err| anyhow!(err).context("failed to run webhook"));
 
             futures::try_join!(
-                sts_restart_controller,
-                pod_restart_controller,
+                delayed_sts_restart_controller,
+                delayed_pod_restart_controller,
                 webhook_server,
                 eos_checker,
             )?;

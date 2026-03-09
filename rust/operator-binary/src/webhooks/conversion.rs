@@ -6,10 +6,14 @@ use stackable_operator::{
     kube::Client,
     webhook::webhooks::{ConversionWebhook, ConversionWebhookOptions, Webhook},
 };
+use tokio::sync::oneshot;
 
 use crate::FIELD_MANAGER;
 
-pub fn create_webhook(disable_crd_maintenance: bool, client: Client) -> Box<impl Webhook> {
+pub fn create_webhook(
+    disable_crd_maintenance: bool,
+    client: Client,
+) -> (Box<impl Webhook>, oneshot::Receiver<()>) {
     let crds_and_handlers = vec![
         (
             AuthenticationClass::merged_crd(AuthenticationClassVersion::V1Alpha1).unwrap(),
@@ -30,8 +34,8 @@ pub fn create_webhook(disable_crd_maintenance: bool, client: Client) -> Box<impl
         field_manager: FIELD_MANAGER.to_owned(),
     };
 
-    let (conversion_webhook, _initial_reconcile_rx) =
+    let (conversion_webhook, initial_reconcile_rx) =
         ConversionWebhook::new(crds_and_handlers, client, conversion_webhook_options);
 
-    Box::new(conversion_webhook)
+    (Box::new(conversion_webhook), initial_reconcile_rx)
 }

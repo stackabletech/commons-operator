@@ -6,6 +6,7 @@ use stackable_operator::{
     kube::Client,
     webhook::{WebhookServer, WebhookServerError, WebhookServerOptions, webhooks::Webhook},
 };
+use tokio::sync::oneshot;
 
 use crate::restart_controller::statefulset::Ctx;
 
@@ -24,7 +25,7 @@ pub async fn create_webhook_server(
     disable_restarter_mutating_webhook: bool,
     disable_crd_maintenance: bool,
     client: Client,
-) -> Result<WebhookServer, Error> {
+) -> Result<(WebhookServer, oneshot::Receiver<()>), Error> {
     let mut webhooks: Vec<Box<dyn Webhook>> = vec![];
 
     if let Some(webhook) = restarter_mutate_sts::create_webhook(
@@ -37,14 +38,19 @@ pub async fn create_webhook_server(
 
     // TODO (@Techassi): The conversion webhook should also allow to be disabled, rework the
     // granularity of these options.
-    webhooks.push(conversion::create_webhook(disable_crd_maintenance, client));
+    let (webhook, initial_reconcile_rx) =
+        conversion::create_webhook(disable_crd_maintenance, client);
+    webhooks.push(webhook);
 
     let webhook_options = WebhookServerOptions {
         socket_addr: WebhookServer::DEFAULT_SOCKET_ADDRESS,
         webhook_namespace: operator_environment.operator_namespace.to_owned(),
         webhook_service_name: operator_environment.operator_service_name.to_owned(),
     };
-    WebhookServer::new(webhooks, webhook_options)
+
+    let webhook_server = WebhookServer::new(webhooks, webhook_options)
         .await
-        .context(CreateWebhookServerSnafu)
+        .context(CreateWebhookServerSnafu)?;
+
+    Ok((webhook_server, initial_reconcile_rx))
 }
