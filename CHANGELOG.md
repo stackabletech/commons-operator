@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fix "404 page not found" error for the initial object list ([#404]).
 - BREAKING: Prevent Pod 0 restart by utilizing a mutating webhook.
   The commons-operator now needs the RBAC permission to `create` and `patch`
   `mutatingwebhookconfigurations`. The webhook can be disabled using
@@ -25,6 +26,7 @@ All notable changes to this project will be documented in this file.
 [#396]: https://github.com/stackabletech/commons-operator/pull/396
 [#400]: https://github.com/stackabletech/commons-operator/pull/400
 [#401]: https://github.com/stackabletech/commons-operator/pull/401
+[#404]: https://github.com/stackabletech/commons-operator/pull/404
 
 ## [25.11.0] - 2025-11-07
 
