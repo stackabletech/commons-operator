@@ -10,12 +10,11 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Bump stackable-operator to 0.106.2, and strum to 0.28 ([#401]).
+- Bump stackable-operator to 0.107.1, and strum to 0.28 ([#401], [#404]).
 - Gracefully shutdown all concurrent tasks by forwarding the SIGTERM signal ([#396]).
 
 ### Fixed
 
-- Fix "404 page not found" error for the initial object list ([#404]).
 - BREAKING: Prevent Pod 0 restart by utilizing a mutating webhook.
   The commons-operator now needs the RBAC permission to `create` and `patch`
   `mutatingwebhookconfigurations`. The webhook can be disabled using
