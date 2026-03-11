@@ -12,8 +12,10 @@ use stackable_operator::{
     crd::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
+        scaler::StackableScaler,
     },
     eos::EndOfSupportChecker,
+    kube::CustomResourceExt as _,
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
     utils::signal::SignalWatcher,
@@ -38,6 +40,7 @@ struct Opts {
     cmd: Command<CommonsOperatorRunArguments>,
 }
 
+/// Command-line arguments for the `run` subcommand of the commons-operator.
 #[derive(Debug, PartialEq, Eq, Parser)]
 pub struct CommonsOperatorRunArguments {
     #[command(flatten)]
@@ -49,6 +52,14 @@ pub struct CommonsOperatorRunArguments {
     /// created StatefulSets. It can be turned off in case you can accept an unneeded Pod restart.
     #[arg(long, env)]
     pub disable_restarter_mutating_webhook: bool,
+
+    /// Don't start the StackableScaler admission webhook.
+    ///
+    /// The admission webhook injects the `stackable.tech/cluster-kind` label on
+    /// StackableScaler resources and rejects `spec.replicas` changes while a scaling
+    /// operation is in progress.
+    #[arg(long, env)]
+    pub disable_scaler_admission_webhook: bool,
 }
 
 #[tokio::main]
@@ -62,6 +73,8 @@ async fn main() -> anyhow::Result<()> {
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+            StackableScaler::crd()
+                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {
             common:
@@ -73,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
                     common,
                 },
             disable_restarter_mutating_webhook,
+            disable_scaler_admission_webhook,
         }) => {
             // NOTE (@NickLarsenNZ): Before stackable-telemetry was used:
             // - The console log level was set by `COMMONS_OPERATOR_LOG`, and is now `CONSOLE_LOG` (when using Tracing::pre_configured).
@@ -124,6 +138,7 @@ async fn main() -> anyhow::Result<()> {
                 ctx,
                 &operator_environment,
                 disable_restarter_mutating_webhook,
+                disable_scaler_admission_webhook,
                 maintenance.disable_crd_maintenance,
                 client.as_kube_client(),
             )

@@ -46,6 +46,16 @@ rules:
       - pods/eviction
     verbs:
       - create
+  # Required by the scaler admission webhook to read the live StackableScaler status
+  # (Kubernetes strips .status from oldObject for CRDs with a status subresource).
+  - apiGroups:
+      - autoscaling.stackable.tech
+    resources:
+      - stackablescalers
+    verbs:
+      - get
+      - list
+      - watch
   # Required to maintain MutatingWebhookConfigurations. The operator needs to do this, as it needs
   # to enter e.g. it's generated certificate in the webhooks.
   - apiGroups: [admissionregistration.k8s.io]
