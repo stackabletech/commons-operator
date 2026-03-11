@@ -44,6 +44,7 @@ pub async fn create_webhook_server(
         webhook_namespace: operator_environment.operator_namespace.to_owned(),
         webhook_service_name: operator_environment.operator_service_name.to_owned(),
     };
+
     WebhookServer::new(webhooks, webhook_options)
         .await
         .context(CreateWebhookServerSnafu)

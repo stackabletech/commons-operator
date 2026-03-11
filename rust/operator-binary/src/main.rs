@@ -107,8 +107,18 @@ async fn main() -> anyhow::Result<()> {
             .await?;
 
             let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
-            let sts_restart_controller = restart_controller::statefulset::start(
+
+            let webhook_server = create_webhook_server(
                 ctx.clone(),
+                &operator_environment,
+                disable_restarter_mutating_webhook,
+                maintenance.disable_crd_maintenance,
+                client.as_kube_client(),
+            )
+            .await?;
+
+            let sts_restart_controller = restart_controller::statefulset::start(
+                ctx,
                 cm_store_tx,
                 secret_store_tx,
                 &watch_namespace,
@@ -119,15 +129,6 @@ async fn main() -> anyhow::Result<()> {
             let pod_restart_controller =
                 restart_controller::pod::start(&client, &watch_namespace, sigterm_watcher.handle())
                     .map(anyhow::Ok);
-
-            let webhook_server = create_webhook_server(
-                ctx,
-                &operator_environment,
-                disable_restarter_mutating_webhook,
-                maintenance.disable_crd_maintenance,
-                client.as_kube_client(),
-            )
-            .await?;
 
             let webhook_server = webhook_server
                 .run(sigterm_watcher.handle())
