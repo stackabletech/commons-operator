@@ -17,7 +17,7 @@ use std::sync::Arc;
 use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
-    crd::scaler::{ScalerStage, StackableScaler},
+    crd::scaler::StackableScaler,
     k8s_openapi::api::admissionregistration::v1::{
         MutatingWebhook, MutatingWebhookConfiguration, RuleWithOperations, WebhookClientConfig,
     },
@@ -169,10 +169,8 @@ async fn scaler_admission_handler(
                             .and_then(|s| s.current_state.as_ref())
                             .map(|state| &state.stage);
 
-                        let is_safe = matches!(
-                            stage,
-                            None | Some(ScalerStage::Idle) | Some(ScalerStage::Failed { .. })
-                        );
+                        let is_safe =
+                            !stage.is_some_and(|s| s.is_scaling_in_progress());
 
                         if !is_safe {
                             let stage_str = stage
