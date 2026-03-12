@@ -2,6 +2,7 @@ use stackable_operator::{
     crd::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
+        scaler::{StackableScaler, StackableScalerVersion},
     },
     kube::Client,
     webhook::webhooks::{ConversionWebhook, ConversionWebhookOptions, Webhook},
@@ -22,6 +23,10 @@ pub fn create_webhook(disable_crd_maintenance: bool, client: Client) -> Box<impl
         (
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1).unwrap(),
             S3Bucket::try_convert as fn(_) -> _,
+        ),
+        (
+            StackableScaler::merged_crd(StackableScalerVersion::V1Alpha1).unwrap(),
+            StackableScaler::try_convert as fn(_) -> _,
         ),
     ];
 

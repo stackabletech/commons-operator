@@ -17,7 +17,7 @@ use std::sync::Arc;
 use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
-    crd::scaler::StackableScaler,
+    crd::scaler::v1alpha1::StackableScaler,
     k8s_openapi::api::admissionregistration::v1::{
         MutatingWebhook, MutatingWebhookConfiguration, RuleWithOperations, WebhookClientConfig,
     },

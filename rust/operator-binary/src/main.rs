@@ -12,10 +12,9 @@ use stackable_operator::{
     crd::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
-        scaler::StackableScaler,
+        scaler::{StackableScaler, StackableScalerVersion},
     },
     eos::EndOfSupportChecker,
-    kube::CustomResourceExt as _,
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
     utils::signal::SignalWatcher,
@@ -73,7 +72,7 @@ async fn main() -> anyhow::Result<()> {
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
-            StackableScaler::crd()
+            StackableScaler::merged_crd(StackableScalerVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {
