@@ -1,20 +1,16 @@
 //! Admission webhook for [`StackableScaler`] resources.
 //!
-//! This webhook serves two purposes:
-//!
-//! ## Validation
 //! On `UPDATE` operations, rejects changes to `spec.replicas` while a scaling operation
 //! is in progress (stage is not `Idle` or `Failed`). Because Kubernetes strips `.status`
 //! from `oldObject` for CRDs with a status subresource, the webhook fetches the live
 //! object to inspect the current stage.
 //!
-//! ## Mutation
-//! Injects the `stackable.tech/cluster-kind` label from `spec.clusterRef.kind` so that
-//! cluster-scoped label selectors work without requiring clients to set the label manually.
+//! This webhook performs validation only — no mutations. It uses the `MutatingWebhook`
+//! framework because `stackable-webhook` does not yet provide a `ValidatingWebhook` type.
+//! The handler never returns patches, so the effect is identical to a validating webhook.
 
 use std::sync::Arc;
 
-use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
     crd::scaler::v1alpha1::StackableScaler,
@@ -43,8 +39,6 @@ use crate::{FIELD_MANAGER, OPERATOR_NAME};
 pub fn create_webhook(disable: bool, client: Client) -> Option<Box<impl Webhook>> {
     (!disable).then(|| {
         let options = MutatingWebhookOptions {
-            // When `disable` is true the outer `(!disable).then(...)` returns None,
-            // so inside this closure `disable` is always false.
             disable_mwc_maintenance: false,
             field_manager: FIELD_MANAGER.to_owned(),
         };
@@ -59,9 +53,9 @@ pub fn create_webhook(disable: bool, client: Client) -> Option<Box<impl Webhook>
     })
 }
 
-/// Build the [`MutatingWebhookConfiguration`] for the scaler admission webhook.
+/// Build the webhook configuration for the scaler admission webhook.
 ///
-/// Covers `CREATE` and `UPDATE` operations on `stackablescalers.autoscaling.stackable.tech`.
+/// Covers `UPDATE` operations only on `stackablescalers.autoscaling.stackable.tech`.
 /// `failure_policy` is `Fail` because an unenforced replicas change during active scaling
 /// would corrupt the scaler state machine.
 fn get_scaler_admission_webhook_configuration() -> MutatingWebhookConfiguration {
@@ -83,17 +77,11 @@ fn get_scaler_admission_webhook_configuration() -> MutatingWebhookConfiguration 
                 api_groups: Some(vec!["autoscaling.stackable.tech".to_owned()]),
                 api_versions: Some(vec!["v1alpha1".to_owned()]),
                 resources: Some(vec!["stackablescalers".to_owned()]),
-                operations: Some(vec!["CREATE".to_owned(), "UPDATE".to_owned()]),
+                operations: Some(vec!["UPDATE".to_owned()]),
                 scope: Some("Namespaced".to_owned()),
             }]),
             client_config: WebhookClientConfig::default(),
-            // TODO(#3): `Fail` blocks all HPA `/scale` writes when the commons-operator is
-            // unavailable (rolling update, crash). The restarter webhook uses `Ignore` for
-            // this reason. Consider switching to `Ignore` or narrowing scope with an
-            // `object_selector` to limit blast radius.
             failure_policy: Some("Fail".to_owned()),
-            // TODO(#4): The restarter webhook uses `IfNeeded` with a documented rationale.
-            // Explain why this webhook uses `Never`, or switch to `IfNeeded` for consistency.
             reinvocation_policy: Some("Never".to_owned()),
             side_effects: "None".to_owned(),
             ..Default::default()
@@ -106,13 +94,7 @@ fn get_scaler_admission_webhook_configuration() -> MutatingWebhookConfiguration 
 /// On `UPDATE`: if `spec.replicas` changed, fetches the live object (5s timeout) and
 /// denies the change unless the stage is `Idle`, `Failed`, or absent.
 ///
-/// On all operations: injects `stackable.tech/cluster-kind` label after validating
-/// the value is a legal Kubernetes label.
-///
-/// # Parameters
-///
-/// - `client`: Used to fetch the live object when validating an `UPDATE`.
-/// - `request`: The incoming admission review request.
+/// All other operations are allowed without inspection.
 async fn scaler_admission_handler(
     client: Arc<Client>,
     request: AdmissionRequest<StackableScaler>,
@@ -149,7 +131,6 @@ async fn scaler_admission_handler(
         "Processing scaler admission request"
     );
 
-    // --- Validation ---
     // On UPDATE: reject spec.replicas changes during active scaling.
     // Kubernetes strips .status from oldObject in admission requests for CRDs
     // with a status subresource, so we fetch the live object to check the stage.
@@ -169,8 +150,7 @@ async fn scaler_admission_handler(
                             .and_then(|s| s.current_state.as_ref())
                             .map(|state| &state.stage);
 
-                        let is_safe =
-                            !stage.is_some_and(|s| s.is_scaling_in_progress());
+                        let is_safe = !stage.is_some_and(|s| s.is_scaling_in_progress());
 
                         if !is_safe {
                             let stage_str = stage
@@ -214,58 +194,10 @@ async fn scaler_admission_handler(
         }
     }
 
-    // --- Mutation ---
-    // Inject cluster-kind label from spec.clusterRef.kind
-    let cluster_kind = &scaler.spec.cluster_ref.kind;
-
-    // Validate the label value before injecting
-    if let Err(e) = Label::try_from(("stackable.tech/cluster-kind", cluster_kind.as_str())) {
-        warn!(
-            scaler = scaler_name,
-            namespace = scaler_namespace,
-            cluster_kind = %cluster_kind,
-            error = %e,
-            "Denying admission: clusterRef.kind is not a valid Kubernetes label value"
-        );
-        return AdmissionResponse::from(&request).deny(format!(
-            "clusterRef.kind '{}' is not a valid Kubernetes label value: {e}",
-            cluster_kind
-        ));
-    }
-
-    let mut patches = Vec::new();
-
-    if scaler.metadata.labels.is_none() {
-        patches.push(PatchOperation::Add(AddOperation {
-            path: PointerBuf::parse("/metadata/labels").expect("valid path"),
-            value: serde_json::Value::Object(serde_json::Map::new()),
-        }));
-    }
-
-    patches.push(PatchOperation::Add(AddOperation {
-        path: PointerBuf::from_tokens(["metadata", "labels", "stackable.tech/cluster-kind"]),
-        value: serde_json::Value::String(cluster_kind.clone()),
-    }));
-
-    match AdmissionResponse::from(&request).with_patch(Patch(patches)) {
-        Ok(response) => {
-            debug!(
-                scaler = scaler_name,
-                namespace = scaler_namespace,
-                cluster_kind = %cluster_kind,
-                "Admitted StackableScaler with cluster-kind label mutation"
-            );
-            response
-        }
-        Err(err) => {
-            warn!(
-                scaler = scaler_name,
-                namespace = scaler_namespace,
-                error = %err,
-                "Denying admission: failed to construct JSON patch"
-            );
-            AdmissionResponse::from(&request)
-                .deny(format!("failed to add patch to AdmissionResponse: {err:#}"))
-        }
-    }
+    debug!(
+        scaler = scaler_name,
+        namespace = scaler_namespace,
+        "Admitted StackableScaler"
+    );
+    AdmissionResponse::from(&request)
 }
