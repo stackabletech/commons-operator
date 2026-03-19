@@ -94,7 +94,7 @@ fn get_scaler_admission_webhook_configuration() -> MutatingWebhookConfiguration 
 /// On `UPDATE`: if `spec.replicas` changed, fetches the live object (5s timeout) and
 /// denies the change unless the stage is `Idle`, `Failed`, or absent.
 ///
-/// All other operations are allowed without inspection.
+/// Updates where `spec.replicas` did not change are allowed without further inspection.
 async fn scaler_admission_handler(
     client: Arc<Client>,
     request: AdmissionRequest<StackableScaler>,
@@ -150,22 +150,17 @@ async fn scaler_admission_handler(
                             .and_then(|s| s.current_state.as_ref())
                             .map(|state| &state.stage);
 
-                        let is_safe = !stage.is_some_and(|s| s.is_scaling_in_progress());
-
-                        if !is_safe {
-                            let stage_str = stage
-                                .map(|s| s.to_string())
-                                .unwrap_or_else(|| "unknown".to_string());
+                        if let Some(active_stage) = stage.filter(|s| s.is_scaling_in_progress()) {
                             info!(
                                 scaler = scaler_name,
                                 namespace = scaler_namespace,
-                                stage = %stage_str,
+                                stage = %active_stage,
                                 old_replicas = old.spec.replicas,
                                 new_replicas = scaler.spec.replicas,
                                 "Denying spec.replicas change while scaling is in progress"
                             );
                             return AdmissionResponse::from(&request).deny(format!(
-                                "Cannot update spec.replicas while scaling is in progress (stage: {stage_str})"
+                                "Cannot update spec.replicas while scaling is in progress (stage: {active_stage})"
                             ));
                         }
                     }

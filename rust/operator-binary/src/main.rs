@@ -54,9 +54,8 @@ pub struct CommonsOperatorRunArguments {
 
     /// Don't start the StackableScaler admission webhook.
     ///
-    /// The admission webhook injects the `stackable.tech/cluster-kind` label on
-    /// StackableScaler resources and rejects `spec.replicas` changes while a scaling
-    /// operation is in progress.
+    /// The admission webhook rejects `spec.replicas` changes on StackableScaler
+    /// resources while a scaling operation is in progress.
     #[arg(long, env)]
     pub disable_scaler_admission_webhook: bool,
 }
