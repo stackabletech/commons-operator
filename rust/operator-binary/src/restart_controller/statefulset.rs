@@ -278,7 +278,13 @@ pub async fn get_updated_restarter_annotations(
             format!(
                 "{}/{}",
                 cm.metadata.uid.as_ref()?,
-                cm.metadata.resource_version.as_ref()?
+                if cm.annotations().get("restarter.stackable.tech/ignore")
+                    == Some(&"true".to_owned())
+                {
+                    "any"
+                } else {
+                    cm.metadata.resource_version.as_ref()?
+                }
             ),
         ))
     }));
@@ -308,16 +314,22 @@ pub async fn get_updated_restarter_annotations(
     annotations.extend(
         secret_refs
             .flat_map(|secret_ref| secrets.get(&secret_ref))
-            .flat_map(|cm| {
+            .flat_map(|secret| {
                 Some((
                     format!(
                         "secret.restarter.stackable.tech/{}",
-                        cm.metadata.name.as_ref()?
+                        secret.metadata.name.as_ref()?
                     ),
                     format!(
                         "{}/{}",
-                        cm.metadata.uid.as_ref()?,
-                        cm.metadata.resource_version.as_ref()?
+                        secret.metadata.uid.as_ref()?,
+                        if secret.annotations().get("restarter.stackable.tech/ignore")
+                            == Some(&"true".to_owned())
+                        {
+                            "any"
+                        } else {
+                            secret.metadata.resource_version.as_ref()?
+                        }
                     ),
                 ))
             }),
