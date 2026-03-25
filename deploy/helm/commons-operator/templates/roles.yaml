@@ -6,33 +6,43 @@ metadata:
   labels:
   {{- include "operator.labels" . | nindent 4 }}
 rules:
+  # Watch pods to detect expiry annotations and evict them (pod restart controller).
+  # Watch configmaps and secrets (metadata only) to detect changes that should trigger a
+  # rolling restart of referencing StatefulSets (StatefulSet restart controller).
+  # list + watch are sufficient; no individual get calls are made (Controller and
+  # metadata_watcher use list + watch internally).
   - apiGroups:
       - ""
     resources:
       - pods
       - configmaps
       - secrets
-      - nodes
     verbs:
-      - get
       - list
       - watch
-  # For automatic cluster domain detection
+  # For automatic cluster domain detection: proxy to the kubelet configz endpoint on the
+  # operator's own node (name supplied via the downward API) to read the clusterDomain
+  # setting. Only a direct GET on the named node's proxy subresource is needed - no
+  # list or watch of nodes is required.
   - apiGroups:
       - ""
     resources:
       - nodes/proxy
     verbs:
       - get
+  # Watch StatefulSets labelled restarter.stackable.tech/enabled=true (list + watch) and
+  # patch their pod template annotations via Server-Side Apply to trigger rolling restarts
+  # when referenced ConfigMaps or Secrets change (patch). No get needed: SSA does not
+  # require a preceding get, and the reflector/watcher covers list + watch.
   - apiGroups:
       - apps
     resources:
       - statefulsets
     verbs:
-      - get
       - list
       - watch
-      - patch # We need to add a label to the StatefulSet
+      - patch
+  # Emit Kubernetes events from both the StatefulSet and Pod restart controllers.
   - apiGroups:
       - events.k8s.io
     resources:
@@ -40,6 +50,8 @@ rules:
     verbs:
       - create
       - patch
+  # Evict pods whose restarter.stackable.tech/expires-at.* annotation timestamp has been
+  # reached (pod restart controller). Eviction is a create on the pods/eviction subresource.
   - apiGroups:
       - ""
     resources:
