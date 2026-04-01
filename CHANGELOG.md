@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Support the `restarter.stackable.tech/ignore` annotation on ConfigMaps and Secrets to exclude
+  them from the restarter controller ([#410]).
+
+[#410]: https://github.com/stackabletech/commons-operator/pull/410
+
 ## [26.3.0] - 2026-03-16
 
 ## [26.3.0-rc1] - 2026-03-16
