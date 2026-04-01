@@ -1,0 +1,93 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-not-ignored
+data:
+  revision: "1"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-not-ignored
+stringData:
+  revision: "1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-ignored
+  annotations:
+    restarter.stackable.tech/ignore: "true"
+data:
+  revision: "1"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-ignored
+  annotations:
+    restarter.stackable.tech/ignore: "true"
+stringData:
+  revision: "1"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: test
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  selector:
+    matchLabels:
+      app: test
+  serviceName: test
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      serviceAccount: integration-tests-sa
+      volumes:
+        - name: configmap-not-ignored
+          configMap:
+            name: configmap-not-ignored
+        - name: secret-not-ignored
+          secret:
+            secretName: secret-not-ignored
+        - name: configmap-ignored
+          configMap:
+            name: configmap-ignored
+        - name: secret-ignored
+          secret:
+            secretName: secret-ignored
+      containers:
+        - name: test
+          image: alpine
+          command:
+            - sleep
+          args:
+            - infinity
+          volumeMounts:
+            - mountPath: /config/configmap-not-ignored-subpath/revision
+              name: configmap-not-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/secret-not-ignored-subpath/revision
+              name: secret-not-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/configmap-ignored
+              name: configmap-ignored
+            - mountPath: /config/secret-ignored
+              name: secret-ignored
+            - mountPath: /config/configmap-ignored-subpath/revision
+              name: configmap-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/secret-ignored-subpath/revision
+              name: secret-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+      terminationGracePeriodSeconds: 5

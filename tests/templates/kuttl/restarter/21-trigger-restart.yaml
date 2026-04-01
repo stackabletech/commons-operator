@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-not-ignored
+data:
+  revision: "2"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-not-ignored
+stringData:
+  revision: "2"
