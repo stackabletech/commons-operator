@@ -30,3 +30,45 @@ Label:: `restarter.stackable.tech/enabled`
 
 The operator can restart StatefulSets when any referenced configuration object (ConfigMap or Secret) changes.
 To enable this, set the `restarter.stackable.tech/enabled` label on the StatefulSet to `true`.
+
+Annotation:: `restarter.stackable.tech/ignore`
+
+If a resource is only used for initialization or is hot-reloaded and should not trigger a restart, add the annotation `restarter.stackable.tech/ignore: "true"` to the corresponding ConfigMap or Secret:
+
+[source,yaml]
+----
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: statefulset-with-enabled-restarter
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  template:
+    spec:
+      volumes:
+        - name: hot-reloaded-configmap
+          configMap:
+            name: hot-reloaded-configmap
+        - name: hot-reloaded-secret
+          secret:
+            secretName: hot-reloaded-secret
+...
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hot-reloaded-configmap
+  annotations:
+    restarter.stackable.tech/ignore: "true"
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hot-reloaded-secret
+  annotations:
+    restarter.stackable.tech/ignore: "true"
+...
+----
