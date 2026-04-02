@@ -135,7 +135,11 @@ pub async fn start<F>(
                         let cm_reader = cm_store.as_reader();
                         reflector(
                             cm_store,
-                            metadata_watcher(cms, watcher::Config::default().labels("restarter.stackable.tech/ignore != true"))
+                            metadata_watcher(
+                                cms,
+                                watcher::Config::default()
+                                    .labels("restarter.stackable.tech/ignore != true"),
+                            ),
                         )
                         .inspect(move |_| {
                             if let Some(tx) = cm_store_tx.take() {
@@ -151,7 +155,11 @@ pub async fn start<F>(
                         let secret_reader = secret_store.as_reader();
                         reflector(
                             secret_store,
-                            metadata_watcher(secrets, watcher::Config::default().labels("restarter.stackable.tech/ignore != true")),
+                            metadata_watcher(
+                                secrets,
+                                watcher::Config::default()
+                                    .labels("restarter.stackable.tech/ignore != true"),
+                            ),
                         )
                         .inspect(move |_| {
                             if let Some(tx) = secret_store_tx.take() {
@@ -244,36 +252,12 @@ pub async fn get_updated_restarter_annotations(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
 
-    let ignored_config_maps = sts
-        .metadata
-        .annotations
-        .iter()
-        .flatten()
-        .filter(|annotation| {
-            annotation
-                .0
-                .starts_with("restarter.stackable.tech/ignore-configmap.")
-        })
-        .map(|x| x.1)
-        .collect::<BTreeSet<_>>();
-    let ignored_secrets = sts
-        .metadata
-        .annotations
-        .iter()
-        .flatten()
-        .filter(|annotation| {
-            annotation
-                .0
-                .starts_with("restarter.stackable.tech/ignore-secret.")
-        })
-        .map(|x| x.1)
-        .collect::<BTreeSet<_>>();
-
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
         .spec
         .iter()
         .flat_map(|sts_spec| sts_spec.template.spec.as_ref());
+
     let cm_refs = pod_specs
         .clone()
         .flat_map(|pod_spec| {
@@ -303,6 +287,18 @@ pub async fn get_updated_restarter_annotations(
         })
         .map(|cm_ref| cm_ref.within(ns));
     let cms = ctx.cms.get().await.context(ConfigMapsUninitializedSnafu)?;
+    let ignored_cms = sts
+        .metadata
+        .annotations
+        .iter()
+        .flatten()
+        .filter(|annotation| {
+            annotation
+                .0
+                .starts_with("restarter.stackable.tech/ignore-configmap.")
+        })
+        .map(|x| x.1)
+        .collect::<BTreeSet<_>>();
     annotations.extend(
         cm_refs
             .map(|cm_ref| (cm_ref.name.clone(), cms.get(&cm_ref)))
@@ -312,7 +308,7 @@ pub async fn get_updated_restarter_annotations(
                     if let Some(cm) = cm
                         && let Some(uid) = &cm.metadata.uid
                         && let Some(resource_version) = &cm.metadata.resource_version
-                        && !ignored_config_maps.contains(&cm_name)
+                        && !ignored_cms.contains(&cm_name)
                     {
                         format!("{uid}/{resource_version}",)
                     } else {
@@ -321,6 +317,7 @@ pub async fn get_updated_restarter_annotations(
                 )
             }),
     );
+
     let secret_refs = pod_specs
         .flat_map(|pod_spec| {
             find_pod_refs(
@@ -344,6 +341,18 @@ pub async fn get_updated_restarter_annotations(
         })
         .map(|secret_ref| secret_ref.within(ns));
     let secrets = ctx.secrets.get().await.context(SecretsUninitializedSnafu)?;
+    let ignored_secrets = sts
+        .metadata
+        .annotations
+        .iter()
+        .flatten()
+        .filter(|annotation| {
+            annotation
+                .0
+                .starts_with("restarter.stackable.tech/ignore-secret.")
+        })
+        .map(|x| x.1)
+        .collect::<BTreeSet<_>>();
     annotations.extend(
         secret_refs
             .map(|secret_ref| (secret_ref.name.clone(), secrets.get(&secret_ref)))
@@ -362,6 +371,7 @@ pub async fn get_updated_restarter_annotations(
                 )
             }),
     );
+
     Ok(annotations)
 }
 
