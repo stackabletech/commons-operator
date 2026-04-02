@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Helm deployed RBAC permissions documented, with unnecessary permissions removed ([#412]).
+- Document Helm deployed RBAC permissions and remove unnecessary permissions ([#412]).
 
 [#412]: https://github.com/stackabletech/commons-operator/pull/412
 
