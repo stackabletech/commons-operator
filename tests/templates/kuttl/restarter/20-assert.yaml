@@ -12,7 +12,11 @@ commands:
 
       assert_revision 1 configmap-not-ignored-subpath
       assert_revision 1 secret-not-ignored-subpath
-      assert_revision 1 configmap-ignored-subpath
-      assert_revision 1 secret-ignored-subpath
-      assert_revision 2 configmap-ignored
-      assert_revision 2 secret-ignored
+      assert_revision 1 configmap-self-ignored-subpath
+      assert_revision 1 secret-self-ignored-subpath
+      assert_revision 2 configmap-self-ignored
+      assert_revision 2 secret-self-ignored
+      assert_revision 1 configmap-ignored-in-statefulset-subpath
+      assert_revision 1 secret-ignored-in-statefulset-subpath
+      assert_revision 2 configmap-ignored-in-statefulset
+      assert_revision 2 secret-ignored-in-statefulset
