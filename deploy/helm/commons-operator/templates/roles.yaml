@@ -73,7 +73,6 @@ rules:
     resources:
       - customresourcedefinitions
     verbs:
-      - get
       - create
       - patch
 {{ end }}
