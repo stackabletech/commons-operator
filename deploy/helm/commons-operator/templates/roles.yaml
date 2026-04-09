@@ -6,7 +6,7 @@ metadata:
   labels:
   {{- include "operator.labels" . | nindent 4 }}
 rules:
-  # Watch pods to detect and evict expired restart annotations.
+  # Watch pods to detect expired restart annotations.
   # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
   - apiGroups:
       - ""
