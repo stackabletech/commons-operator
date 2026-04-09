@@ -6,11 +6,8 @@ metadata:
   labels:
   {{- include "operator.labels" . | nindent 4 }}
 rules:
-  # Watch pods to detect expiry annotations and evict them (pod restart controller).
-  # Watch configmaps and secrets (metadata only) to detect changes that should trigger a
-  # rolling restart of referencing StatefulSets (StatefulSet restart controller).
-  # list + watch are sufficient; no individual get calls are made (Controller and
-  # metadata_watcher use list + watch internally).
+  # Watch pods to detect and evict expired restart annotations.
+  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
   - apiGroups:
       - ""
     resources:
@@ -20,20 +17,15 @@ rules:
     verbs:
       - list
       - watch
-  # For automatic cluster domain detection: proxy to the kubelet configz endpoint on the
-  # operator's own node (name supplied via the downward API) to read the clusterDomain
-  # setting. Only a direct GET on the named node's proxy subresource is needed - no
-  # list or watch of nodes is required.
+  # For automatic cluster domain detection.
   - apiGroups:
       - ""
     resources:
       - nodes/proxy
     verbs:
       - get
-  # Watch StatefulSets labelled restarter.stackable.tech/enabled=true (list + watch) and
-  # patch their pod template annotations via Server-Side Apply to trigger rolling restarts
-  # when referenced ConfigMaps or Secrets change (patch). No get needed: SSA does not
-  # require a preceding get, and the reflector/watcher covers list + watch.
+  # Watch and patch StatefulSets (labelled restarter.stackable.tech/enabled=true)
+  # to trigger rolling restarts when referenced ConfigMaps or Secrets change.
   - apiGroups:
       - apps
     resources:
@@ -42,7 +34,7 @@ rules:
       - list
       - watch
       - patch
-  # Emit Kubernetes events from both the StatefulSet and Pod restart controllers.
+  # Emit Kubernetes events from the restart controllers.
   - apiGroups:
       - events.k8s.io
     resources:
@@ -50,23 +42,23 @@ rules:
     verbs:
       - create
       - patch
-  # Evict pods whose restarter.stackable.tech/expires-at.* annotation timestamp has been
-  # reached (pod restart controller). Eviction is a create on the pods/eviction subresource.
+  # Evict pods whose restarter.stackable.tech/expires-at.* annotation timestamp
+  # has been reached.
   - apiGroups:
       - ""
     resources:
       - pods/eviction
     verbs:
       - create
-  # Required to maintain MutatingWebhookConfigurations. The operator needs to do this, as it needs
-  # to enter e.g. it's generated certificate in the webhooks.
+  # Required to maintain MutatingWebhookConfigurations with auto-generated and
+  # rotated webhook certificates.
   - apiGroups: [admissionregistration.k8s.io]
     resources: [mutatingwebhookconfigurations]
     verbs:
       - create
       - patch
-# Required to maintain the CRD. The operator needs to do this, as it needs to enter e.g. it's
-# generated certificate in the conversion webhook.
+# Required to maintain the CRD with auto-generated and rotated webhook
+#certificates.
 {{ if .Values.maintenance.customResourceDefinitions.maintain }}
   - apiGroups:
       - apiextensions.k8s.io
