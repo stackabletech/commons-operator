@@ -10,7 +10,12 @@ All notable changes to this project will be documented in this file.
   `restarter.stackable.tech/ignore-configmap.x` and `restarter.stackable.tech/ignore-secret.x` on
   StatefulSets to exclude ConfigMaps and Secrets from the restarter controller ([#410]).
 
+### Changed
+
+- Document Helm deployed RBAC permissions and remove unnecessary permissions ([#412]).
+
 [#410]: https://github.com/stackabletech/commons-operator/pull/410
+[#412]: https://github.com/stackabletech/commons-operator/pull/412
 
 ## [26.3.0] - 2026-03-16
 

@@ -6,33 +6,35 @@ metadata:
   labels:
   {{- include "operator.labels" . | nindent 4 }}
 rules:
+  # Watch pods to detect expired restart annotations.
+  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
   - apiGroups:
       - ""
     resources:
       - pods
       - configmaps
       - secrets
-      - nodes
     verbs:
-      - get
       - list
       - watch
-  # For automatic cluster domain detection
+  # For automatic cluster domain detection.
   - apiGroups:
       - ""
     resources:
       - nodes/proxy
     verbs:
       - get
+  # Watch and patch StatefulSets (labelled restarter.stackable.tech/enabled=true)
+  # to trigger rolling restarts when referenced ConfigMaps or Secrets change.
   - apiGroups:
       - apps
     resources:
       - statefulsets
     verbs:
-      - get
       - list
       - watch
-      - patch # We need to add a label to the StatefulSet
+      - patch
+  # Emit Kubernetes events from the restart controllers.
   - apiGroups:
       - events.k8s.io
     resources:
@@ -40,28 +42,29 @@ rules:
     verbs:
       - create
       - patch
+  # Evict pods whose restarter.stackable.tech/expires-at.* annotation timestamp
+  # has been reached.
   - apiGroups:
       - ""
     resources:
       - pods/eviction
     verbs:
       - create
-  # Required to maintain MutatingWebhookConfigurations. The operator needs to do this, as it needs
-  # to enter e.g. it's generated certificate in the webhooks.
+  # Required to maintain MutatingWebhookConfigurations with auto-generated and
+  # rotated webhook certificates.
   - apiGroups: [admissionregistration.k8s.io]
     resources: [mutatingwebhookconfigurations]
     verbs:
       - create
       - patch
-# Required to maintain the CRD. The operator needs to do this, as it needs to enter e.g. it's
-# generated certificate in the conversion webhook.
 {{ if .Values.maintenance.customResourceDefinitions.maintain }}
+  # Required to maintain the CRD with auto-generated and rotated webhook
+  # certificates.
   - apiGroups:
       - apiextensions.k8s.io
     resources:
       - customresourcedefinitions
     verbs:
-      - get
       - create
       - patch
 {{ end }}
