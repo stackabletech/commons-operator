@@ -292,12 +292,10 @@ pub async fn get_updated_restarter_annotations(
         .annotations
         .iter()
         .flatten()
-        .filter(|annotation| {
-            annotation
-                .0
-                .starts_with("restarter.stackable.tech/ignore-configmap.")
+        .filter_map(|(key, value)| {
+            key.starts_with("restarter.stackable.tech/ignore-configmap.")
+                .then_some(value)
         })
-        .map(|x| x.1)
         .collect::<BTreeSet<_>>();
     annotations.extend(
         cm_refs
