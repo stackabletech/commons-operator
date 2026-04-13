@@ -6,10 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Support the annotation `restarter.stackable.tech/ignore` on ConfigMaps and Secrets and the
-  annotations `restarter.stackable.tech/ignore-configmap.x` and
-  `restarter.stackable.tech/ignore-secret.x` on StatefulSets to exclude ConfigMaps and Secrets from
-  the restarter controller ([#410]).
+- Support the label `restarter.stackable.tech/ignore` on ConfigMaps and Secrets and the annotations
+  `restarter.stackable.tech/ignore-configmap.x` and `restarter.stackable.tech/ignore-secret.x` on
+  StatefulSets to exclude ConfigMaps and Secrets from the restarter controller ([#410]).
 
 [#410]: https://github.com/stackabletech/commons-operator/pull/410
 
