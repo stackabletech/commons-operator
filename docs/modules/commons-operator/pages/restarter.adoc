@@ -65,7 +65,7 @@ spec:
 
 Label:: `restarter.stackable.tech/ignore`
 
-If a ConfigMap or Secret is only used for initializing a StatefulSet or contains data which can be hot-reloaded, add the label `restarter.stackable.tech/ignore: "true"` to avoid unnecessary restarts of the StatefulSet pods:
+If a ConfigMap or Secret is only used for initializing a StatefulSet or contains data which can be hot-reloaded, add the label `restarter.stackable.tech/ignore: "true"` to avoid unnecessary restarts of the StatefulSet Pods:
 
 [source,yaml]
 ----
