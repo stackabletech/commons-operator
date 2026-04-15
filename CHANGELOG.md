@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#412]).
+- Bump stackable-operator to version 0.110.0 ([#410]).
 
 [#410]: https://github.com/stackabletech/commons-operator/pull/410
 [#412]: https://github.com/stackabletech/commons-operator/pull/412
