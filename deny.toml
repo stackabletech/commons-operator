@@ -44,9 +44,6 @@ ignore = [
     #
     # This version is pulled in transitively via num-bigint-dig -> rsa -> stackable-certs and cannot be
     # updated until the upstream rsa crate bumps its rand dependency.
-    #
-    # This should be fixed in rsa v0.10.
-    # Release tracking issue: https://github.com/RustCrypto/RSA/issues/647
     "RUSTSEC-2026-0097",
 ]
 
