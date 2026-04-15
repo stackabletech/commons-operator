@@ -1,0 +1,127 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-not-ignored
+data:
+  revision: "1"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-not-ignored
+stringData:
+  revision: "1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-self-ignored
+  annotations:
+    restarter.stackable.tech/ignore: "true"
+data:
+  revision: "1"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-self-ignored
+  annotations:
+    restarter.stackable.tech/ignore: "true"
+stringData:
+  revision: "1"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-ignored-in-statefulset
+data:
+  revision: "1"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-ignored-in-statefulset
+stringData:
+  revision: "1"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: test
+  labels:
+    restarter.stackable.tech/enabled: "true"
+    restarter.stackable.tech/ignore-configmap.0: configmap-ignored-in-statefulset
+    restarter.stackable.tech/ignore-secret.0: secret-ignored-in-statefulset
+spec:
+  selector:
+    matchLabels:
+      app: test
+  serviceName: test
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      serviceAccount: integration-tests-sa
+      volumes:
+        - name: configmap-not-ignored
+          configMap:
+            name: configmap-not-ignored
+        - name: secret-not-ignored
+          secret:
+            secretName: secret-not-ignored
+        - name: configmap-self-ignored
+          configMap:
+            name: configmap-self-ignored
+        - name: secret-self-ignored
+          secret:
+            secretName: secret-self-ignored
+        - name: configmap-ignored-in-statefulset
+          configMap:
+            name: configmap-ignored-in-statefulset
+        - name: secret-ignored-in-statefulset
+          secret:
+            secretName: secret-ignored-in-statefulset
+      containers:
+        - name: test
+          image: alpine
+          command:
+            - sleep
+          args:
+            - infinity
+          volumeMounts:
+            - mountPath: /config/configmap-not-ignored-subpath/revision
+              name: configmap-not-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/secret-not-ignored-subpath/revision
+              name: secret-not-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/configmap-self-ignored
+              name: configmap-self-ignored
+            - mountPath: /config/secret-self-ignored
+              name: secret-self-ignored
+            - mountPath: /config/configmap-self-ignored-subpath/revision
+              name: configmap-self-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/secret-self-ignored-subpath/revision
+              name: secret-self-ignored
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/configmap-ignored-in-statefulset
+              name: configmap-ignored-in-statefulset
+            - mountPath: /config/secret-ignored-in-statefulset
+              name: secret-ignored-in-statefulset
+            - mountPath: /config/configmap-ignored-in-statefulset-subpath/revision
+              name: configmap-ignored-in-statefulset
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+            - mountPath: /config/secret-ignored-in-statefulset-subpath/revision
+              name: secret-ignored-in-statefulset
+              # Use a subPath, so that changes are only visible after a restart.
+              subPath: revision
+      terminationGracePeriodSeconds: 5

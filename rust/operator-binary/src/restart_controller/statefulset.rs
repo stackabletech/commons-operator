@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, future::Future, sync::Arc, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    future::Future,
+    sync::Arc,
+    time::Duration,
+};
 
 use futures::{Stream, StreamExt, TryStream, stream};
 use serde_json::json;
@@ -128,13 +133,20 @@ pub async fn start<F>(
                 trigger_all(
                     {
                         let cm_reader = cm_store.as_reader();
-                        reflector(cm_store, metadata_watcher(cms, watcher::Config::default()))
-                            .inspect(move |_| {
-                                if let Some(tx) = cm_store_tx.take() {
-                                    tx.init(cm_reader.clone());
-                                }
-                            })
-                            .touched_objects()
+                        reflector(
+                            cm_store,
+                            metadata_watcher(
+                                cms,
+                                watcher::Config::default()
+                                    .labels("restarter.stackable.tech/ignore != true"),
+                            ),
+                        )
+                        .inspect(move |_| {
+                            if let Some(tx) = cm_store_tx.take() {
+                                tx.init(cm_reader.clone());
+                            }
+                        })
+                        .touched_objects()
                     },
                     sts_store.as_reader(),
                 ),
@@ -143,7 +155,11 @@ pub async fn start<F>(
                         let secret_reader = secret_store.as_reader();
                         reflector(
                             secret_store,
-                            metadata_watcher(secrets, watcher::Config::default()),
+                            metadata_watcher(
+                                secrets,
+                                watcher::Config::default()
+                                    .labels("restarter.stackable.tech/ignore != true"),
+                            ),
                         )
                         .inspect(move |_| {
                             if let Some(tx) = secret_store_tx.take() {
@@ -235,11 +251,13 @@ pub async fn get_updated_restarter_annotations(
     let ns = sts.metadata.namespace.as_deref().expect(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
+
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
         .spec
         .iter()
         .flat_map(|sts_spec| sts_spec.template.spec.as_ref());
+
     let cm_refs = pod_specs
         .clone()
         .flat_map(|pod_spec| {
@@ -269,19 +287,35 @@ pub async fn get_updated_restarter_annotations(
         })
         .map(|cm_ref| cm_ref.within(ns));
     let cms = ctx.cms.get().await.context(ConfigMapsUninitializedSnafu)?;
-    annotations.extend(cm_refs.flat_map(|cm_ref| cms.get(&cm_ref)).flat_map(|cm| {
-        Some((
-            format!(
-                "configmap.restarter.stackable.tech/{}",
-                cm.metadata.name.as_ref()?
-            ),
-            format!(
-                "{}/{}",
-                cm.metadata.uid.as_ref()?,
-                cm.metadata.resource_version.as_ref()?
-            ),
-        ))
-    }));
+    let ignored_cms = sts
+        .metadata
+        .annotations
+        .iter()
+        .flatten()
+        .filter_map(|(key, value)| {
+            key.starts_with("restarter.stackable.tech/ignore-configmap.")
+                .then_some(value)
+        })
+        .collect::<BTreeSet<_>>();
+    annotations.extend(
+        cm_refs
+            .map(|cm_ref| (cm_ref.name.clone(), cms.get(&cm_ref)))
+            .map(|(cm_name, cm)| {
+                (
+                    format!("configmap.restarter.stackable.tech/{cm_name}",),
+                    if let Some(cm) = cm
+                        && let Some(uid) = &cm.metadata.uid
+                        && let Some(resource_version) = &cm.metadata.resource_version
+                        && !ignored_cms.contains(&cm_name)
+                    {
+                        format!("{uid}/{resource_version}",)
+                    } else {
+                        "changes-ignored".to_owned()
+                    },
+                )
+            }),
+    );
+
     let secret_refs = pod_specs
         .flat_map(|pod_spec| {
             find_pod_refs(
@@ -305,23 +339,37 @@ pub async fn get_updated_restarter_annotations(
         })
         .map(|secret_ref| secret_ref.within(ns));
     let secrets = ctx.secrets.get().await.context(SecretsUninitializedSnafu)?;
+    let ignored_secrets = sts
+        .metadata
+        .annotations
+        .iter()
+        .flatten()
+        .filter(|annotation| {
+            annotation
+                .0
+                .starts_with("restarter.stackable.tech/ignore-secret.")
+        })
+        .map(|x| x.1)
+        .collect::<BTreeSet<_>>();
     annotations.extend(
         secret_refs
-            .flat_map(|secret_ref| secrets.get(&secret_ref))
-            .flat_map(|cm| {
-                Some((
-                    format!(
-                        "secret.restarter.stackable.tech/{}",
-                        cm.metadata.name.as_ref()?
-                    ),
-                    format!(
-                        "{}/{}",
-                        cm.metadata.uid.as_ref()?,
-                        cm.metadata.resource_version.as_ref()?
-                    ),
-                ))
+            .map(|secret_ref| (secret_ref.name.clone(), secrets.get(&secret_ref)))
+            .map(|(secret_name, secret)| {
+                (
+                    format!("secret.restarter.stackable.tech/{secret_name}",),
+                    if let Some(secret) = secret
+                        && let Some(uid) = &secret.metadata.uid
+                        && let Some(resource_version) = &secret.metadata.resource_version
+                        && !ignored_secrets.contains(&secret_name)
+                    {
+                        format!("{uid}/{resource_version}",)
+                    } else {
+                        "changes-ignored".to_owned()
+                    },
+                )
             }),
     );
+
     Ok(annotations)
 }
 

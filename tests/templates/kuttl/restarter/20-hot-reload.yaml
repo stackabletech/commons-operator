@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-self-ignored
+data:
+  revision: "2"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-self-ignored
+stringData:
+  revision: "2"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-ignored-in-statefulset
+data:
+  revision: "2"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-ignored-in-statefulset
+stringData:
+  revision: "2"

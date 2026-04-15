@@ -1,0 +1,20 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 180
+commands:
+  - script: |
+      . ../../../../templates/kuttl/restarter/test-script.sh
+
+      # After a restart, all resources should have been updated.
+
+      assert_revision 2 configmap-not-ignored-subpath
+      assert_revision 2 secret-not-ignored-subpath
+      assert_revision 2 configmap-self-ignored-subpath
+      assert_revision 2 secret-self-ignored-subpath
+      assert_revision 2 configmap-self-ignored
+      assert_revision 2 secret-self-ignored
+      assert_revision 2 configmap-ignored-in-statefulset-subpath
+      assert_revision 2 secret-ignored-in-statefulset-subpath
+      assert_revision 2 configmap-ignored-in-statefulset
+      assert_revision 2 secret-ignored-in-statefulset

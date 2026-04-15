@@ -3,4 +3,20 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestAssert
 timeout: 180
 commands:
-  - script: test "restarted" = $(kubectl exec sleep-0 -c sleep -n $NAMESPACE -- cat /config/property)
+  - script: |
+      . ../../../../templates/kuttl/restarter/test-script.sh
+
+      # Resources mounted via subPath are not hot-reloaded by Kubernetes.
+      # It is expected, that the restart controller ignored the annotated resources and that only
+      # the resources not mounted via subPath were updated.
+
+      assert_revision 1 configmap-not-ignored-subpath
+      assert_revision 1 secret-not-ignored-subpath
+      assert_revision 1 configmap-self-ignored-subpath
+      assert_revision 1 secret-self-ignored-subpath
+      assert_revision 2 configmap-self-ignored
+      assert_revision 2 secret-self-ignored
+      assert_revision 1 configmap-ignored-in-statefulset-subpath
+      assert_revision 1 secret-ignored-in-statefulset-subpath
+      assert_revision 2 configmap-ignored-in-statefulset
+      assert_revision 2 secret-ignored-in-statefulset

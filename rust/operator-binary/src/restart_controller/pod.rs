@@ -220,23 +220,20 @@ async fn report_result(
         const EVICT_ERROR_MESSAGE: &str =
             "Cannot evict pod as it would violate the pod's disruption budget.";
 
-        // TODO: We need Rust 1.88 and 2024 edition for if-let-chains
-        if let kube::Error::Api(s) = evict_pod_error {
-            if let Status {
+        if let kube::Error::Api(s) = evict_pod_error
+            && let Status {
                 code: TOO_MANY_REQUESTS_HTTP_CODE,
                 message: error_message,
                 ..
             } = s.deref()
-            {
-                if error_message == EVICT_ERROR_MESSAGE {
-                    tracing::info!(
-                        k8s.object.ref = %pod_ref,
-                        error = %evict_pod_error,
-                        "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
-                    );
-                    return;
-                }
-            }
+            && error_message == EVICT_ERROR_MESSAGE
+        {
+            tracing::info!(
+                k8s.object.ref = %pod_ref,
+                error = %evict_pod_error,
+                "Tried to evict Pod, but wasn't allowed to do so, as it would violate the Pod's disruption budget. Retrying later"
+            );
+            return;
         }
     }
 

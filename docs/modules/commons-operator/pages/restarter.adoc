@@ -30,3 +30,61 @@ Label:: `restarter.stackable.tech/enabled`
 
 The operator can restart StatefulSets when any referenced configuration object (ConfigMap or Secret) changes.
 To enable this, set the `restarter.stackable.tech/enabled` label on the StatefulSet to `true`.
+
+Annotation:: `restarter.stackable.tech/ignore-configmap.*`
+Annotation:: `restarter.stackable.tech/ignore-secret.*`
+
+These annotations can be added if the restarter is enabled on a StatefulSet, but some ConfigMaps or Secrets should be excluded from triggering a restart. `*` can be replaced with any value and is only used to make the annotation key unique.
+
+[source,yaml]
+----
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: statefulset-with-enabled-restarter
+  labels:
+    restarter.stackable.tech/enabled: "true"
+  annotations:
+    restarter.stackable.tech/ignore-configmap.0: hot-reloaded-configmap
+    restarter.stackable.tech/ignore-secret.0: hot-reloaded-secret
+spec:
+  template:
+    spec:
+      volumes:
+        - name: configuration
+          configMap:
+            name: hot-reloaded-configmap
+        - name: credentials
+          secret:
+            secretName: hot-reloaded-secret
+...
+----
+
+== ConfigMap/Secret
+
+Label:: `restarter.stackable.tech/ignore`
+
+If a ConfigMap or Secret is only used for initializing a StatefulSet or contains data which can be hot-reloaded, add the label `restarter.stackable.tech/ignore: "true"` to avoid unnecessary restarts of the StatefulSet Pods:
+
+[source,yaml]
+----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hot-reloaded-configmap
+  labels:
+    restarter.stackable.tech/ignore: "true"
+...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hot-reloaded-secret
+  labels:
+    restarter.stackable.tech/ignore: "true"
+...
+----
+
+Unlike the StatefulSet annotations `restarter.stackable.tech/ignore-configmap.\*` and `restarter.stackable.tech/ignore-secret.*`, this label affects every StatefulSet that references the labeled ConfigMaps or Secrets.

@@ -57,11 +57,11 @@ async fn main() -> anyhow::Result<()> {
     match opts.cmd {
         Command::Crd => {
             AuthenticationClass::merged_crd(AuthenticationClassVersion::V1Alpha1)?
-                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
             S3Connection::merged_crd(S3ConnectionVersion::V1Alpha1)?
-                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
-                .print_yaml_schema(built_info::PKG_VERSION, SerializeOptions::default())?;
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {
             common:
@@ -96,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
             let sigterm_watcher = SignalWatcher::sigterm()?;
 
             let eos_checker =
-                EndOfSupportChecker::new(built_info::BUILT_TIME_UTC, maintenance.end_of_support)?
+                EndOfSupportChecker::new(built_info::BUILT_TIME_UTC, &maintenance.end_of_support)?
                     .run(sigterm_watcher.handle())
                     .map(anyhow::Ok);
 
