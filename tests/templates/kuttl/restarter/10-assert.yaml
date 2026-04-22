@@ -4,6 +4,10 @@ kind: TestAssert
 timeout: 120
 commands:
   - script: |
+      # N.B. due to breaking change https://github.com/kudobuilder/kuttl/pull/519
+      # version >=0.17 of Kuttl is required for paths to be resolved consistently.
+      # For local testing, either use nix-shell before running the test script
+      # or upgrade kuttl as needed (with e.g. kubectl krew upgrade kuttl)
       . ./test-script.sh
 
       # Wait for the StatefulSet to be deployed
