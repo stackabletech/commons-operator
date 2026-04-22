@@ -4,7 +4,7 @@ kind: TestAssert
 timeout: 180
 commands:
   - script: |
-      . ../../../../templates/kuttl/restarter/test-script.sh
+      . ./test-script.sh
 
       # After a restart, all resources should have been updated.
 
