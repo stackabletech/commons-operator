@@ -4,7 +4,14 @@ kind: TestAssert
 timeout: 180
 commands:
   - script: |
-      . ../../../../templates/kuttl/restarter/test-script.sh
+      . test-script.sh
+
+      # Wait for a possible restart of the test pod.
+      # The restarter controller is expected to ignore the changes in this step, so no restart
+      # should occur. However, if a restart does happen (due to a controller bug or test issue),
+      # wait here so we can verify assertions after the restart and ensure this test step fails
+      # reliably.
+      sleep 10
 
       # Resources mounted via subPath are not hot-reloaded by Kubernetes.
       # It is expected, that the restart controller ignored the annotated resources and that only
