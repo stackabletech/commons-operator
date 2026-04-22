@@ -4,7 +4,7 @@ kind: TestAssert
 timeout: 180
 commands:
   - script: |
-      . test-script.sh
+      . ./test-script.sh
 
       # Wait for a possible restart of the test pod.
       # The restarter controller is expected to ignore the changes in this step, so no restart

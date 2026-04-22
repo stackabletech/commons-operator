@@ -4,7 +4,7 @@ kind: TestAssert
 timeout: 120
 commands:
   - script: |
-      . test-script.sh
+      . ./test-script.sh
 
       # Wait for the StatefulSet to be deployed
       kubectl rollout status statefulset/test --namespace "$NAMESPACE"
