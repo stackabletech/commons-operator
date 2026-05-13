@@ -12,9 +12,6 @@ registry = settings.get('default_registry', 'oci.stackable.tech')
 operator_repository = settings.get('default_operator_repository', registry + '/' + 'sandbox')
 operator_image_name = operator_repository + '/' + operator_name
 
-# For the product image, we wanna use the images in the "sdp" namespace, because "sandbox" doesn't
-# contain those images (by default).
-product_repository = settings.get('default_product_repository', registry + '/' + 'sdp')
 
 # Configure default registry either read from config file above, or with default value of
 # "oci.stackable.tech"
@@ -41,7 +38,6 @@ k8s_kind('DaemonSet', image_json_path='{.spec.template.metadata.annotations.inte
 helm_values = settings.get('helm_values', None)
 
 helm_override_operator_image_repository = 'image.repository=' + operator_repository
-helm_override_product_image_repository = 'image.productRepository=' + product_repository
 
 k8s_yaml(helm(
    'deploy/helm/' + operator_name,
@@ -49,7 +45,6 @@ k8s_yaml(helm(
    namespace="stackable-operators",
    set=[
       helm_override_operator_image_repository,
-      helm_override_product_image_repository,
    ],
    values=helm_values,
 ))
