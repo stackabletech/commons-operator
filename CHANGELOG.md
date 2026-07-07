@@ -12,11 +12,13 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Bump stackable-operator to 0.113.3 and snafu to 0.9 ([#430]).
 - Document Helm deployed RBAC permissions and remove unnecessary permissions ([#412]).
 - Bump stackable-operator to version 0.110.0 ([#410]).
 
 [#410]: https://github.com/stackabletech/commons-operator/pull/410
 [#412]: https://github.com/stackabletech/commons-operator/pull/412
+[#430]: https://github.com/stackabletech/commons-operator/pull/430
 
 ## [26.3.0] - 2026-03-16
 
