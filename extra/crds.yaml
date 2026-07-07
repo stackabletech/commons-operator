@@ -17,7 +17,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for AuthenticationClassSpec via `CustomResource`
+        description: The Stackable Platform uses the AuthenticationClass as a central mechanism to handle user authentication across supported products.
         properties:
           spec:
             description: |-
@@ -104,7 +104,7 @@ spec:
                                 type: array
                             type: object
                           secretClass:
-                            description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                            description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing the requested secrets.'
                             type: string
                         required:
                         - secretClass
@@ -375,7 +375,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for ConnectionSpec via `CustomResource`
+        description: A reusable definition of a connection to an S3 endpoint.
         properties:
           spec:
             description: |-
@@ -435,7 +435,7 @@ spec:
                         type: array
                     type: object
                   secretClass:
-                    description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                    description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing the requested secrets.'
                     type: string
                 required:
                 - secretClass
@@ -540,7 +540,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Auto-generated derived type for BucketSpec via `CustomResource`
+        description: S3 bucket specification containing the bucket name and an inlined or referenced connection specification.
         properties:
           spec:
             description: |-
@@ -616,7 +616,7 @@ spec:
                                 type: array
                             type: object
                           secretClass:
-                            description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) containing the LDAP bind credentials.'
+                            description: '[SecretClass](https://docs.stackable.tech/home/nightly/secret-operator/secretclass) providing the requested secrets.'
                             type: string
                         required:
                         - secretClass
