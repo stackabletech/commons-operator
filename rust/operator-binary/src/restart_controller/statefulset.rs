@@ -22,9 +22,9 @@ use stackable_operator::{
             Config, WatchStreamExt, applier,
             controller::{Action, ReconcileRequest, trigger_self, trigger_with},
             events::{Recorder, Reporter},
-            metadata_watcher, reflector,
+            reflector,
             reflector::{ObjectRef, Store},
-            watcher,
+            watcher::{self, watcher},
         },
     },
     logging::controller::{ReconcilerError, report_controller_reconciled},
@@ -107,8 +107,8 @@ pub async fn start<F>(
     F: Future<Output = ()>,
 {
     let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(&ctx.client);
-    let cms = watch_namespace.get_api::<ConfigMap>(&ctx.client);
-    let secrets = watch_namespace.get_api::<Secret>(&ctx.client);
+    let cms = watch_namespace.get_api::<PartialObjectMeta<ConfigMap>>(&ctx.client);
+    let secrets = watch_namespace.get_api::<PartialObjectMeta<Secret>>(&ctx.client);
     let sts_store = reflector::store::Writer::<DeserializeGuard<StatefulSet>>::new(());
     let cm_store = reflector::store::Writer::<PartialObjectMeta<ConfigMap>>::new(());
     let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
@@ -135,7 +135,7 @@ pub async fn start<F>(
                         let cm_reader = cm_store.as_reader();
                         reflector(
                             cm_store,
-                            metadata_watcher(
+                            watcher(
                                 cms,
                                 watcher::Config::default()
                                     .labels("restarter.stackable.tech/ignore != true"),
@@ -155,7 +155,7 @@ pub async fn start<F>(
                         let secret_reader = secret_store.as_reader();
                         reflector(
                             secret_store,
-                            metadata_watcher(
+                            watcher(
                                 secrets,
                                 watcher::Config::default()
                                     .labels("restarter.stackable.tech/ignore != true"),
