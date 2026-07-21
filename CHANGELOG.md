@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Support the label `restarter.stackable.tech/ignore` on ConfigMaps and Secrets and the annotations
   `restarter.stackable.tech/ignore-configmap.x` and `restarter.stackable.tech/ignore-secret.x` on
   StatefulSets to exclude ConfigMaps and Secrets from the restarter controller ([#410]).
+- Install and manage the OpenLineageConnection custom resource definition ([#435]).
 
 ### Changed
 
@@ -19,6 +20,7 @@ All notable changes to this project will be documented in this file.
 [#410]: https://github.com/stackabletech/commons-operator/pull/410
 [#412]: https://github.com/stackabletech/commons-operator/pull/412
 [#430]: https://github.com/stackabletech/commons-operator/pull/430
+[#435]: https://github.com/stackabletech/commons-operator/pull/435
 
 ## [26.3.0] - 2026-03-16
 
