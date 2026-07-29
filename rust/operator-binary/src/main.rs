@@ -69,7 +69,6 @@ async fn main() -> anyhow::Result<()> {
         Command::Run(CommonsOperatorRunArguments {
             common:
                 RunArguments {
-                    product_config: _,
                     watch_namespace,
                     operator_environment,
                     maintenance,
