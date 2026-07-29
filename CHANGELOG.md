@@ -8,7 +8,12 @@ All notable changes to this project will be documented in this file.
 
 - Install and manage the OpenLineageConnection custom resource definition ([#435]).
 
+### Changed
+
+- Bump stackable-operator to 0.114.0 ([#439]).
+
 [#435]: https://github.com/stackabletech/commons-operator/pull/435
+[#439]: https://github.com/stackabletech/commons-operator/pull/439
 
 ## [26.7.0] - 2026-07-21
 

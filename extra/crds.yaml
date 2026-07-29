@@ -6,15 +6,12 @@ metadata:
 spec:
   group: authentication.stackable.tech
   names:
-    categories: []
     kind: AuthenticationClass
     plural: authenticationclasses
-    shortNames: []
     singular: authenticationclass
   scope: Cluster
   versions:
-  - additionalPrinterColumns: []
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: The Stackable Platform uses the AuthenticationClass as a central mechanism to handle user authentication across supported products.
@@ -355,7 +352,6 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -364,15 +360,12 @@ metadata:
 spec:
   group: s3.stackable.tech
   names:
-    categories: []
     kind: S3Connection
     plural: s3connections
-    shortNames: []
     singular: s3connection
   scope: Namespaced
   versions:
-  - additionalPrinterColumns: []
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: A reusable definition of a connection to an S3 endpoint.
@@ -520,7 +513,6 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -529,15 +521,12 @@ metadata:
 spec:
   group: s3.stackable.tech
   names:
-    categories: []
     kind: S3Bucket
     plural: s3buckets
-    shortNames: []
     singular: s3bucket
   scope: Namespaced
   versions:
-  - additionalPrinterColumns: []
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: S3 bucket specification containing the bucket name and an inlined or referenced connection specification.
@@ -708,7 +697,6 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -717,15 +705,12 @@ metadata:
 spec:
   group: lineage.stackable.tech
   names:
-    categories: []
     kind: OpenLineageConnection
     plural: openlineageconnections
-    shortNames: []
     singular: openlineageconnection
   scope: Namespaced
   versions:
-  - additionalPrinterColumns: []
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: A reusable definition of a connection to an OpenLineage backend.
@@ -818,4 +803,3 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
