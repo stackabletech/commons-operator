@@ -19,7 +19,7 @@ helm install commons-operator deploy/helm/commons-operator
 
 ## Usage of the CRDs
 
-The usage of this operator and its CRDs is described in the [documentation](https://docs.stackable.tech/commons/index.html)
+The usage of this operator and its CRDs is described in the [documentation](https://docs.stackable.tech/commons-operator/index.html)
 
 The operator has example requests included in the [`/examples`](https://github.com/stackabletech/commons-operator/tree/main/examples) directory.
 
