@@ -11,6 +11,7 @@ use stackable_operator::{
     cli::{Command, RunArguments},
     crd::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
+        openlineage::{OpenLineageConnection, OpenLineageConnectionVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
     },
     eos::EndOfSupportChecker,
@@ -61,6 +62,8 @@ async fn main() -> anyhow::Result<()> {
             S3Connection::merged_crd(S3ConnectionVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
+            OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {

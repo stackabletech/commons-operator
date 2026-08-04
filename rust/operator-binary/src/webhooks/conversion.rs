@@ -1,6 +1,7 @@
 use stackable_operator::{
     crd::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
+        openlineage::{OpenLineageConnection, OpenLineageConnectionVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
     },
     kube::Client,
@@ -22,6 +23,10 @@ pub fn create_webhook(disable_crd_maintenance: bool, client: Client) -> Box<impl
         (
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1).unwrap(),
             S3Bucket::try_convert as fn(_) -> _,
+        ),
+        (
+            OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1).unwrap(),
+            OpenLineageConnection::try_convert as fn(_) -> _,
         ),
     ];
 
