@@ -8,7 +8,14 @@ All notable changes to this project will be documented in this file.
 
 - Bump stackable-operator to 0.114.0 ([#439]).
 
+### Fixed
+
+- Support ConfigMaps and Secrets with names longer than 63 characters. Previously the restarter put
+  the object name into the name part of an annotation key, which Kubernetes limits to 63 characters,
+  causing it to reject the entire StatefulSet ([#443]).
+
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
+[#443]: https://github.com/stackabletech/commons-operator/pull/443
 
 ## [26.7.0] - 2026-07-21
 

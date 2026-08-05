@@ -29,12 +29,21 @@ use stackable_operator::{
     },
     logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
+    v2::{
+        macros::attributed_string_type::MAX_ANNOTATION_NAME_LENGTH, role_group_utils::ResourceNames,
+    },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
 use crate::utils::delayed_init::{DelayedInit, InitDropped, Initializer};
 
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
+
+/// Prefix of the Pod annotations tracking the referenced ConfigMaps.
+const CONFIGMAP_ANNOTATION_PREFIX: &str = "configmap.restarter.stackable.tech";
+
+/// Prefix of the Pod annotations tracking the referenced Secrets.
+const SECRET_ANNOTATION_PREFIX: &str = "secret.restarter.stackable.tech";
 
 pub struct Ctx {
     client: Client,
@@ -244,6 +253,23 @@ fn find_pod_refs<'a, K: Resource + 'a>(
         .chain(container_env_from_refs)
 }
 
+/// Builds the annotation key tracking the referenced ConfigMap or Secret named `object_name`.
+///
+/// Kubernetes object names are DNS subdomains and can be up to 253 characters long, but the name
+/// part of an annotation key (everything after the `/`) is a qualified name and must not exceed 63
+/// characters. Embedding the object name verbatim therefore produced an invalid annotation key for
+/// longer names, which made Kubernetes reject the entire StatefulSet - either at admission time via
+/// our mutating webhook, or when this controller patched it.
+///
+/// So instead we rely on [`ResourceNames::ensure_max_length`] to keep the name within limits (by
+/// appending a hash as needed).
+fn annotation_key(prefix: &str, object_name: &str) -> String {
+    let shortened_object_name =
+        ResourceNames::ensure_max_length(object_name.to_owned(), MAX_ANNOTATION_NAME_LENGTH, 8);
+
+    format!("{prefix}/{shortened_object_name}")
+}
+
 pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
@@ -302,7 +328,7 @@ pub async fn get_updated_restarter_annotations(
             .map(|cm_ref| (cm_ref.name.clone(), cms.get(&cm_ref)))
             .map(|(cm_name, cm)| {
                 (
-                    format!("configmap.restarter.stackable.tech/{cm_name}",),
+                    annotation_key(CONFIGMAP_ANNOTATION_PREFIX, &cm_name),
                     if let Some(cm) = cm
                         && let Some(uid) = &cm.metadata.uid
                         && let Some(resource_version) = &cm.metadata.resource_version
@@ -356,7 +382,7 @@ pub async fn get_updated_restarter_annotations(
             .map(|secret_ref| (secret_ref.name.clone(), secrets.get(&secret_ref)))
             .map(|(secret_name, secret)| {
                 (
-                    format!("secret.restarter.stackable.tech/{secret_name}",),
+                    annotation_key(SECRET_ANNOTATION_PREFIX, &secret_name),
                     if let Some(secret) = secret
                         && let Some(uid) = &secret.metadata.uid
                         && let Some(resource_version) = &secret.metadata.resource_version
@@ -427,5 +453,32 @@ fn error_policy(_obj: Arc<DeserializeGuard<StatefulSet>>, error: &Error, _ctx: A
         Error::InvalidStatefulSet { .. } => Action::await_change(),
 
         _ => Action::requeue(Duration::from_secs(5)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_annotation_names() {
+        assert_eq!(
+            annotation_key(CONFIGMAP_ANNOTATION_PREFIX, "my-configmap"),
+            "configmap.restarter.stackable.tech/my-configmap"
+        );
+        assert_eq!(
+            annotation_key(
+                SECRET_ANNOTATION_PREFIX,
+                "secret-not-ignored-with-very-looooooong-name-with-63-characters"
+            ),
+            "secret.restarter.stackable.tech/secret-not-ignored-with-very-looooooong-name-with-63-characters"
+        );
+        assert_eq!(
+            annotation_key(
+                SECRET_ANNOTATION_PREFIX,
+                "hiverest-owner-user.stackable-postgres-cluster.credentials.postgresql.acid.zalan.do"
+            ),
+            "secret.restarter.stackable.tech/hiverest-owner-user.stackable-postgres-cluster.credent-8221aa71"
+        );
     }
 }
