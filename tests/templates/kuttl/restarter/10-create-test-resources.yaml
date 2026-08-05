@@ -9,7 +9,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: secret-not-ignored
+  name: secret-not-ignored-with-very-looooooong-name-with-63-characters
 stringData:
   revision: "1"
 ---
@@ -72,7 +72,7 @@ spec:
             name: configmap-not-ignored
         - name: secret-not-ignored
           secret:
-            secretName: secret-not-ignored
+            secretName: secret-not-ignored-with-very-looooooong-name-with-63-characters
         - name: configmap-self-ignored
           configMap:
             name: configmap-self-ignored

@@ -9,6 +9,6 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: secret-not-ignored
+  name: secret-not-ignored-with-very-looooooong-name-with-63-characters
 stringData:
   revision: "2"
