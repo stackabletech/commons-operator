@@ -22,16 +22,13 @@ use stackable_operator::{
             Config, WatchStreamExt, applier,
             controller::{Action, ReconcileRequest, trigger_self, trigger_with},
             events::{Recorder, Reporter},
-            reflector,
-            reflector::{ObjectRef, Store},
+            reflector::{self, ObjectRef, Store},
             watcher::{self, watcher},
         },
     },
+    kvp::{self, KeyError},
     logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
-    v2::{
-        macros::attributed_string_type::MAX_ANNOTATION_NAME_LENGTH, role_group_utils::ResourceNames,
-    },
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
@@ -56,7 +53,8 @@ pub struct Ctx {
 pub enum Error {
     #[snafu(display("StatefulSet object is invalid"))]
     InvalidStatefulSet {
-        source: error_boundary::InvalidObject,
+        #[snafu(source(from(error_boundary::InvalidObject, Box::new)))]
+        source: Box<error_boundary::InvalidObject>,
     },
 
     #[snafu(display("failed to patch object {obj_ref}"))]
@@ -70,6 +68,12 @@ pub enum Error {
 
     #[snafu(display("secrets initializer was cancelled"))]
     SecretsUninitialized { source: InitDropped },
+
+    #[snafu(display("failed to build annotation key for object {object_name:?}"))]
+    InvalidAnnotationKey {
+        source: KeyError,
+        object_name: String,
+    },
 }
 
 impl ReconcilerError for Error {
@@ -83,6 +87,7 @@ impl ReconcilerError for Error {
             Error::PatchFailed { obj_ref, .. } => Some(*obj_ref.clone()),
             Error::ConfigMapsUninitialized { .. } => None,
             Error::SecretsUninitialized { .. } => None,
+            Error::InvalidAnnotationKey { .. } => None,
         }
     }
 }
@@ -142,7 +147,7 @@ pub async fn start<F>(
                 trigger_all(
                     {
                         let cm_reader = cm_store.as_reader();
-                        reflector(
+                        reflector::reflector(
                             cm_store,
                             watcher(
                                 cms,
@@ -162,7 +167,7 @@ pub async fn start<F>(
                 trigger_all(
                     {
                         let secret_reader = secret_store.as_reader();
-                        reflector(
+                        reflector::reflector(
                             secret_store,
                             watcher(
                                 secrets,
@@ -181,7 +186,7 @@ pub async fn start<F>(
                 ),
             ),
             trigger_self(
-                reflector(
+                reflector::reflector(
                     sts_store,
                     watcher(
                         stses,
@@ -261,13 +266,12 @@ fn find_pod_refs<'a, K: Resource + 'a>(
 /// longer names, which made Kubernetes reject the entire StatefulSet - either at admission time via
 /// our mutating webhook, or when this controller patched it.
 ///
-/// So instead we rely on [`ResourceNames::ensure_max_length`] to keep the name within limits (by
-/// appending a hash as needed).
-fn annotation_key(prefix: &str, object_name: &str) -> String {
-    let shortened_object_name =
-        ResourceNames::ensure_max_length(object_name.to_owned(), MAX_ANNOTATION_NAME_LENGTH, 8);
+/// So instead we rely on [`kvp::Key::shortened_to_valid_length`] to keep the name within limits.
+fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
+    let key = kvp::Key::shortened_to_valid_length(prefix, object_name)
+        .context(InvalidAnnotationKeySnafu { object_name })?;
 
-    format!("{prefix}/{shortened_object_name}")
+    Ok(key.to_string())
 }
 
 pub async fn get_updated_restarter_annotations(
@@ -323,24 +327,22 @@ pub async fn get_updated_restarter_annotations(
                 .then_some(value)
         })
         .collect::<BTreeSet<_>>();
-    annotations.extend(
-        cm_refs
-            .map(|cm_ref| (cm_ref.name.clone(), cms.get(&cm_ref)))
-            .map(|(cm_name, cm)| {
-                (
-                    annotation_key(CONFIGMAP_ANNOTATION_PREFIX, &cm_name),
-                    if let Some(cm) = cm
-                        && let Some(uid) = &cm.metadata.uid
-                        && let Some(resource_version) = &cm.metadata.resource_version
-                        && !ignored_cms.contains(&cm_name)
-                    {
-                        format!("{uid}/{resource_version}",)
-                    } else {
-                        "changes-ignored".to_owned()
-                    },
-                )
-            }),
-    );
+    for cm_ref in cm_refs {
+        let cm_name = &cm_ref.name;
+        let cm = cms.get(&cm_ref);
+
+        let value = if let Some(cm) = cm
+            && let Some(uid) = &cm.metadata.uid
+            && let Some(resource_version) = &cm.metadata.resource_version
+            && !ignored_cms.contains(cm_name)
+        {
+            format!("{uid}/{resource_version}",)
+        } else {
+            "changes-ignored".to_owned()
+        };
+
+        annotations.insert(annotation_key(CONFIGMAP_ANNOTATION_PREFIX, cm_name)?, value);
+    }
 
     let secret_refs = pod_specs
         .flat_map(|pod_spec| {
@@ -377,24 +379,25 @@ pub async fn get_updated_restarter_annotations(
         })
         .map(|x| x.1)
         .collect::<BTreeSet<_>>();
-    annotations.extend(
-        secret_refs
-            .map(|secret_ref| (secret_ref.name.clone(), secrets.get(&secret_ref)))
-            .map(|(secret_name, secret)| {
-                (
-                    annotation_key(SECRET_ANNOTATION_PREFIX, &secret_name),
-                    if let Some(secret) = secret
-                        && let Some(uid) = &secret.metadata.uid
-                        && let Some(resource_version) = &secret.metadata.resource_version
-                        && !ignored_secrets.contains(&secret_name)
-                    {
-                        format!("{uid}/{resource_version}",)
-                    } else {
-                        "changes-ignored".to_owned()
-                    },
-                )
-            }),
-    );
+    for secret_ref in secret_refs {
+        let secret_name = &secret_ref.name;
+        let secret = secrets.get(&secret_ref);
+
+        let value = if let Some(secret) = secret
+            && let Some(uid) = &secret.metadata.uid
+            && let Some(resource_version) = &secret.metadata.resource_version
+            && !ignored_secrets.contains(secret_name)
+        {
+            format!("{uid}/{resource_version}",)
+        } else {
+            "changes-ignored".to_owned()
+        };
+
+        annotations.insert(
+            annotation_key(SECRET_ANNOTATION_PREFIX, secret_name)?,
+            value,
+        );
+    }
 
     Ok(annotations)
 }
@@ -463,21 +466,24 @@ mod tests {
     #[test]
     fn test_annotation_names() {
         assert_eq!(
-            annotation_key(CONFIGMAP_ANNOTATION_PREFIX, "my-configmap"),
+            annotation_key(CONFIGMAP_ANNOTATION_PREFIX, "my-configmap")
+                .expect("annotation key for a short ConfigMap name must be valid"),
             "configmap.restarter.stackable.tech/my-configmap"
         );
         assert_eq!(
             annotation_key(
                 SECRET_ANNOTATION_PREFIX,
                 "secret-not-ignored-with-very-looooooong-name-with-63-characters"
-            ),
+            )
+            .expect("annotation key for a Secret name of exactly 63 characters must be valid"),
             "secret.restarter.stackable.tech/secret-not-ignored-with-very-looooooong-name-with-63-characters"
         );
         assert_eq!(
             annotation_key(
                 SECRET_ANNOTATION_PREFIX,
                 "hiverest-owner-user.stackable-postgres-cluster.credentials.postgresql.acid.zalan.do"
-            ),
+            )
+            .expect("annotation key for an overly long Secret name must be shortened and valid"),
             "secret.restarter.stackable.tech/hiverest-owner-user.stackable-postgres-cluster.credent-8221aa71"
         );
     }
