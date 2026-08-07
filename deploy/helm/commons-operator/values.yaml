@@ -1,7 +1,6 @@
 # Default values for commons-operator.
 ---
 image:
-  repository: oci.stackable.tech/sdp/commons-operator
   pullPolicy: IfNotPresent
   pullSecrets: []
 
