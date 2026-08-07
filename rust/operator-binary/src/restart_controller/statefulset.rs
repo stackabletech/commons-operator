@@ -268,7 +268,7 @@ fn find_pod_refs<'a, K: Resource + 'a>(
 ///
 /// So instead we rely on [`kvp::Key::shortened_to_valid_length`] to keep the name within limits.
 fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
-    let key = kvp::Key::shortened_to_valid_length(prefix, object_name)
+    let key = kvp::Key::shortened_to_valid_length(Some(prefix), object_name)
         .context(InvalidAnnotationKeySnafu { object_name })?;
 
     Ok(key.to_string())
