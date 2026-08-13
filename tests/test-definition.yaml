@@ -10,6 +10,9 @@ tests:
   - name: restarter-no-unneeded-restart
     dimensions:
       - openshift
+  - name: restarter-content-identical-write
+    dimensions:
+      - openshift
 suites:
   - name: nightly
   - name: openshift

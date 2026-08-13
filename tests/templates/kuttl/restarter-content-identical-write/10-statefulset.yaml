@@ -1,0 +1,38 @@
+---
+# A minimal StatefulSet opted in to the restarter, mounting a ConfigMap.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+data:
+  foo: bar
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: test
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  selector:
+    matchLabels:
+      app: test
+  serviceName: test
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:1.27
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: test-config
