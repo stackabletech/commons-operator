@@ -17,6 +17,9 @@ All notable changes to this project will be documented in this file.
 - Extend Helm deployed RBAC permissions to list and watch customresourcedefinitions required for startup condition ([#461]).
 - The operator Deployment runs with a restricted security context, so it can be deployed into namespaces that enforce the `restricted` Pod Security Standard ([#462]).
 - The operator Deployment runs with a read-only root filesystem ([#469]).
+- The StatefulSet restarter now keys its annotations on a digest of the mounted ConfigMap/Secret
+  content instead of the object's `resourceVersion`, so a content-identical write by a third party
+  no longer triggers a rolling restart of the whole role group ([#449]).
 
 ### Fixed
 
@@ -28,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
 [#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#444]: https://github.com/stackabletech/commons-operator/pull/444
+[#449]: https://github.com/stackabletech/commons-operator/issues/449
 [#461]: https://github.com/stackabletech/commons-operator/pull/461
 [#462]: https://github.com/stackabletech/commons-operator/pull/462
 [#466]: https://github.com/stackabletech/commons-operator/pull/466
