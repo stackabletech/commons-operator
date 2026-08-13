@@ -1,0 +1,19 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+timeout: 120
+commands:
+  # Do a change that should (tm) not have an impact on a pod mounting/needing this cm.
+  - script: |
+      kubectl apply --server-side --field-manager=third-party-controller --force-conflicts -f - <<EOF
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test-config
+        namespace: $NAMESPACE
+      data:
+        foo: bar
+      EOF
+
+  # Bit of time before the restart-controller can react, otherwise we directly pass.
+  - script: sleep 15
