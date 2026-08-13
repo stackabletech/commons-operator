@@ -10339,6 +10339,10 @@ rec {
             packageId = "serde_json";
           }
           {
+            name = "sha2";
+            packageId = "sha2";
+          }
+          {
             name = "snafu";
             packageId = "snafu 0.9.2";
           }
