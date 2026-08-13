@@ -1,19 +1,25 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
     future::Future,
     sync::Arc,
     time::Duration,
 };
 
 use futures::{Stream, StreamExt, TryStream, stream};
+use serde::de::DeserializeOwned;
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
-    k8s_openapi::api::{
-        apps::v1::StatefulSet,
-        core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+    k8s_openapi::{
+        NamespaceResourceScope,
+        api::{
+            apps::v1::StatefulSet,
+            core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+        },
+        apimachinery::pkg::apis::meta::v1::ObjectMeta,
     },
     kube::{
         self, Resource, ResourceExt,
@@ -31,9 +37,15 @@ use stackable_operator::{
     logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
 };
-use strum::{EnumDiscriminants, IntoStaticStr};
+use strum::{EnumDiscriminants, EnumString, IntoStaticStr};
 
-use crate::utils::delayed_init::{DelayedInit, InitDropped, Initializer};
+use crate::{
+    restart_controller::{
+        content_digest::{ContentDigest, DigestCache},
+        digest_key::{self, DigestKeyStore},
+    },
+    utils::delayed_init::{DelayedInit, InitDropped, Initializer},
+};
 
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
 
@@ -43,10 +55,45 @@ const CONFIGMAP_ANNOTATION_PREFIX: &str = "configmap.restarter.stackable.tech";
 /// Prefix of the Pod annotations tracking the referenced Secrets.
 const SECRET_ANNOTATION_PREFIX: &str = "secret.restarter.stackable.tech";
 
+/// StatefulSet annotation selecting the [`ChangeTrackingMechanism`].
+const CHANGE_TRACKING_MECHANISM_ANNOTATION: &str =
+    "restarter.stackable.tech/change-tracking-mechanism";
+
+/// How the restarter decides that a referenced ConfigMap or Secret has changed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumString)]
+#[strum(serialize_all = "kebab-case")]
+enum ChangeTrackingMechanism {
+    /// Every write to the object counts as a change, including metadata-only writes.
+    ///
+    /// Only needs the metadata of the object, which the restarter watches anyway.
+    #[default]
+    ResourceVersion,
+
+    /// Only changes to the content (`data` and `binaryData`) count as a change.
+    ///
+    /// Fetches the object whenever its resourceVersion changes, to digest its content.
+    DataHash,
+}
+
+impl ChangeTrackingMechanism {
+    /// Reads the mechanism from the StatefulSet annotation, falling back to the default.
+    fn from_statefulset(sts: &StatefulSet) -> Result<Self, Error> {
+        match sts.annotations().get(CHANGE_TRACKING_MECHANISM_ANNOTATION) {
+            Some(value) => value
+                .parse()
+                .context(InvalidChangeTrackingMechanismSnafu { value }),
+            None => Ok(Self::default()),
+        }
+    }
+}
+
 pub struct Ctx {
     client: Client,
     cms: DelayedInit<Store<PartialObjectMeta<ConfigMap>>>,
     secrets: DelayedInit<Store<PartialObjectMeta<Secret>>>,
+    cm_digests: DigestCache<ConfigMap>,
+    secret_digests: DigestCache<Secret>,
+    digest_key: DigestKeyStore,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -75,6 +122,23 @@ pub enum Error {
         source: KeyError,
         object_name: String,
     },
+
+    #[snafu(display(
+        "invalid value {value:?} for StatefulSet annotation {CHANGE_TRACKING_MECHANISM_ANNOTATION:?}, expected one of \"resource-version\" or \"data-hash\""
+    ))]
+    InvalidChangeTrackingMechanism {
+        source: strum::ParseError,
+        value: String,
+    },
+
+    #[snafu(display("failed to fetch {obj_ref} to digest its content"))]
+    FetchContentFailed {
+        source: stackable_operator::client::Error,
+        obj_ref: Box<ObjectRef<DynamicObject>>,
+    },
+
+    #[snafu(display("failed to load the key for content digests"))]
+    LoadDigestKey { source: digest_key::Error },
 }
 
 impl ReconcilerError for Error {
@@ -89,6 +153,9 @@ impl ReconcilerError for Error {
             Error::ConfigMapsUninitialized { .. } => None,
             Error::SecretsUninitialized { .. } => None,
             Error::InvalidAnnotationKey { .. } => None,
+            Error::InvalidChangeTrackingMechanism { .. } => None,
+            Error::FetchContentFailed { obj_ref, .. } => Some(*obj_ref.clone()),
+            Error::LoadDigestKey { .. } => None,
         }
     }
 }
@@ -96,6 +163,7 @@ impl ReconcilerError for Error {
 #[allow(clippy::type_complexity)]
 pub fn create_context(
     client: Client,
+    operator_namespace: String,
 ) -> (
     Arc<Ctx>,
     Initializer<Store<PartialObjectMeta<ConfigMap>>>,
@@ -104,9 +172,12 @@ pub fn create_context(
     let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
     let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
     let ctx = Arc::new(Ctx {
-        client,
+        client: client.clone(),
         cms: cm_store_delayed,
         secrets: secret_store_delayed,
+        cm_digests: DigestCache::default(),
+        secret_digests: DigestCache::default(),
+        digest_key: DigestKeyStore::new(client, operator_namespace),
     });
 
     (ctx, cm_store_tx, secret_store_tx)
@@ -276,6 +347,47 @@ fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
     Ok(key.to_string())
 }
 
+/// Value of the Pod template annotation tracking the object with the given `metadata` for
+/// `ChangeTrackingMechanism::ResourceVersion`, or `None` if the metadata lacks uid or
+/// resourceVersion.
+fn resource_version_value(metadata: &ObjectMeta) -> Option<String> {
+    let uid = metadata.uid.as_deref()?;
+    let resource_version = metadata.resource_version.as_deref()?;
+    Some(format!("{uid}/{resource_version}"))
+}
+
+/// Value of the Pod template annotation tracking `object` according to `mechanism`, or `None` if
+/// it cannot be determined, e.g. because the object was deleted in the meantime.
+///
+/// For [`ChangeTrackingMechanism::DataHash`] this fetches the object, unless `digests` already
+/// holds the digest for its current resourceVersion.
+async fn tracking_value<K>(
+    ctx: &Ctx,
+    digests: &DigestCache<K>,
+    object: &PartialObjectMeta<K>,
+    mechanism: ChangeTrackingMechanism,
+) -> Result<Option<String>, Error>
+where
+    K: ContentDigest + Resource<Scope = NamespaceResourceScope> + Clone + Debug + DeserializeOwned,
+{
+    let metadata = &object.metadata;
+    match mechanism {
+        ChangeTrackingMechanism::ResourceVersion => Ok(resource_version_value(metadata)),
+        ChangeTrackingMechanism::DataHash => {
+            let digest_key = ctx.digest_key.get().await.context(LoadDigestKeySnafu)?;
+            let cached = digests
+                .get_or_fetch(metadata, digest_key, |name, namespace| {
+                    ctx.client.get_opt::<K>(name, namespace)
+                })
+                .await
+                .with_context(|_| FetchContentFailedSnafu {
+                    obj_ref: ObjectRef::from_obj(object).erase(),
+                })?;
+            Ok(cached.map(|cached| format!("{}/{}", cached.uid, cached.digest)))
+        }
+    }
+}
+
 pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
@@ -283,6 +395,7 @@ pub async fn get_updated_restarter_annotations(
     let ns = sts.metadata.namespace.as_deref().expect(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
+    let mechanism = ChangeTrackingMechanism::from_statefulset(sts)?;
 
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
@@ -336,21 +449,19 @@ pub async fn get_updated_restarter_annotations(
         // It is intended that "changes-ignored" is also used if the ConfigMap is not in the store,
         // i.e. it doesn't exist (yet), e.g. because the StatefulSet was created before the
         // ConfigMap, or it has the label `restarter.stackable.tech/ignore=true` (filtered out by the
-        // watcher). Once the ConfigMap shows up, the value changes to its uid/resourceVersion
-        // (unless ignored via the StatefulSet annotations), which restarts the Pods so that they
-        // pick it up.
+        // watcher). Once the ConfigMap shows up, the value changes to its tracking value (see
+        // `ChangeTrackingMechanism`, unless ignored via the StatefulSet annotations), which
+        // restarts the Pods so that they pick it up.
         // Leaving out the annotation instead would not avoid any restart, but cause additional
         // ones, e.g. when an object ignored via a StatefulSet annotation is created after the
         // StatefulSet.
-        let value = if let Some(cm) = cm
-            && let Some(uid) = &cm.metadata.uid
-            && let Some(resource_version) = &cm.metadata.resource_version
-            && !ignored_cms.contains(cm_name)
-        {
-            format!("{uid}/{resource_version}",)
-        } else {
-            "changes-ignored".to_owned()
-        };
+        let value = match cm {
+            Some(cm) if !ignored_cms.contains(cm_name) => {
+                tracking_value(&ctx, &ctx.cm_digests, &cm, mechanism).await?
+            }
+            _ => None,
+        }
+        .unwrap_or_else(|| "changes-ignored".to_owned());
 
         annotations.insert(annotation_key(CONFIGMAP_ANNOTATION_PREFIX, cm_name)?, value);
     }
@@ -395,15 +506,13 @@ pub async fn get_updated_restarter_annotations(
         let secret = secrets.get(&secret_ref);
 
         // Same as for ConfigMaps above, "changes-ignored" is intended for Secrets not in the store.
-        let value = if let Some(secret) = secret
-            && let Some(uid) = &secret.metadata.uid
-            && let Some(resource_version) = &secret.metadata.resource_version
-            && !ignored_secrets.contains(secret_name)
-        {
-            format!("{uid}/{resource_version}",)
-        } else {
-            "changes-ignored".to_owned()
-        };
+        let value = match secret {
+            Some(secret) if !ignored_secrets.contains(secret_name) => {
+                tracking_value(&ctx, &ctx.secret_digests, &secret, mechanism).await?
+            }
+            _ => None,
+        }
+        .unwrap_or_else(|| "changes-ignored".to_owned());
 
         annotations.insert(
             annotation_key(SECRET_ANNOTATION_PREFIX, secret_name)?,
@@ -466,6 +575,7 @@ fn error_policy(_obj: Arc<DeserializeGuard<StatefulSet>>, error: &Error, _ctx: A
     match error {
         // root object is invalid, will be requeued when modified anyway
         Error::InvalidStatefulSet { .. } => Action::await_change(),
+        Error::InvalidChangeTrackingMechanism { .. } => Action::await_change(),
 
         _ => Action::requeue(Duration::from_secs(5)),
     }
@@ -498,5 +608,55 @@ mod tests {
             .expect("annotation key for an overly long Secret name must be shortened and valid"),
             "secret.restarter.stackable.tech/hiverest-owner-user.stackable-postgres-cluster.credent-8221aa71"
         );
+    }
+
+    fn statefulset_with_mechanism(mechanism: Option<&str>) -> StatefulSet {
+        StatefulSet {
+            metadata: ObjectMeta {
+                annotations: mechanism.map(|mechanism| {
+                    [(
+                        CHANGE_TRACKING_MECHANISM_ANNOTATION.to_owned(),
+                        mechanism.to_owned(),
+                    )]
+                    .into()
+                }),
+                ..ObjectMeta::default()
+            },
+            ..StatefulSet::default()
+        }
+    }
+
+    #[test]
+    fn change_tracking_mechanism_is_read_from_the_annotation() {
+        for (annotation, expected) in [
+            (None, Some(ChangeTrackingMechanism::ResourceVersion)),
+            (
+                Some("resource-version"),
+                Some(ChangeTrackingMechanism::ResourceVersion),
+            ),
+            (Some("data-hash"), Some(ChangeTrackingMechanism::DataHash)),
+            (Some("DataHash"), None),
+        ] {
+            assert_eq!(
+                ChangeTrackingMechanism::from_statefulset(&statefulset_with_mechanism(annotation))
+                    .ok(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn resource_version_value_matches_previous_releases() {
+        let metadata = ObjectMeta {
+            uid: Some("f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c".to_owned()),
+            resource_version: Some("12345".to_owned()),
+            ..ObjectMeta::default()
+        };
+
+        assert_eq!(
+            resource_version_value(&metadata).as_deref(),
+            Some("f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c/12345")
+        );
+        assert_eq!(resource_version_value(&ObjectMeta::default()), None);
     }
 }
