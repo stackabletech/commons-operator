@@ -266,7 +266,7 @@ fn find_pod_refs<'a, K: Resource + 'a>(
 /// longer names, which made Kubernetes reject the entire StatefulSet - either at admission time via
 /// our mutating webhook, or when this controller patched it.
 ///
-/// So instead we rely on [`kvp::Key::shortened_to_valid_length`] to keep the name within limits.
+/// So instead we rely on [`kvp::Key::new_trimmed`] to keep the name within limits.
 fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
     let key = kvp::Key::new_trimmed(Some(prefix), object_name)
         .context(InvalidAnnotationKeySnafu { object_name })?;

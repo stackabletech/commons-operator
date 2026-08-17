@@ -16,7 +16,6 @@ All notable changes to this project will be documented in this file.
 
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
 [#443]: https://github.com/stackabletech/commons-operator/pull/443
-[#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#444]: https://github.com/stackabletech/commons-operator/pull/444
 
 ## [26.7.0] - 2026-07-21
