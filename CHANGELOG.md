@@ -8,9 +8,13 @@ All notable changes to this project will be documented in this file.
 
 - Bump stackable-operator to 0.114.0 ([#439]).
 - Bump stackabke-operator to 0.115.0 ([#444]).
+- The StatefulSet restarter now keys its annotations on a digest of the mounted ConfigMap/Secret
+  content instead of the object's `resourceVersion`, so a content-identical write by a third party
+  no longer triggers a rolling restart of the whole role group ([#449]).
 
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
 [#444]: https://github.com/stackabletech/commons-operator/pull/444
+[#449]: https://github.com/stackabletech/commons-operator/issues/449
 
 ## [26.7.0] - 2026-07-21
 
