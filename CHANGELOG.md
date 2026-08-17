@@ -6,8 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Bump stackable-operator to 0.114.0 ([#439]).
-- Bump stackabke-operator to 0.115.0 ([#444]).
+- Bump stackable-operator to 0.116.0 ([#439], [#443], [#444]).
 
 ### Fixed
 
@@ -16,6 +15,7 @@ All notable changes to this project will be documented in this file.
   causing it to reject the entire StatefulSet ([#443]).
 
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
+[#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#444]: https://github.com/stackabletech/commons-operator/pull/444
 
