@@ -1,5 +1,5 @@
 <!-- markdownlint-disable MD034 -->
-# Helm Chart for Stackable Operator for Stackable Commons
+# Helm Chart for Stackable Commons Operator
 
 Kubernetes operator for common resources shared across the Stackable Data Platform (SDP).
 
