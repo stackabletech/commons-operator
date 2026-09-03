@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "operator.name" -}}
+{{- define "commons-operator.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-operator" }}
 {{- end }}
 
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "operator.appname" -}}
+{{- define "commons-operator.appname" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -17,7 +17,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "operator.fullname" -}}
+{{- define "commons-operator.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -33,16 +33,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "operator.chart" -}}
+{{- define "commons-operator.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "operator.labels" -}}
-helm.sh/chart: {{ include "operator.chart" . }}
-{{ include "operator.selectorLabels" . }}
+{{- define "commons-operator.labels" -}}
+helm.sh/chart: {{ include "commons-operator.chart" . }}
+{{ include "commons-operator.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -52,8 +52,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "operator.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "operator.appname" . }}
+{{- define "commons-operator.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "commons-operator.appname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- with .Values.labels }}
 {{ toYaml . }}
@@ -63,9 +63,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "operator.serviceAccountName" -}}
+{{- define "commons-operator.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (printf "%s-serviceaccount" (include "operator.fullname" .)) .Values.serviceAccount.name }}
+{{- default (printf "%s-serviceaccount" (include "commons-operator.fullname" .)) .Values.serviceAccount.name }}
 {{- else }}
 {{- required "serviceAccount.name is required when serviceAccount.create is false, because the chart then does not create a ServiceAccount for the operator to run as." .Values.serviceAccount.name }}
 {{- end }}
@@ -74,13 +74,13 @@ Create the name of the service account to use
 {{/*
 Labels for Kubernetes objects created by helm test
 */}}
-{{- define "operator.testLabels" -}}
-helm.sh/test: {{ include "operator.chart" . }}
+{{- define "commons-operator.testLabels" -}}
+helm.sh/test: {{ include "commons-operator.chart" . }}
 {{- end }}
 
 {{/*
 Build the full operator container image reference.
 */}}
-{{- define "operator.image" -}}
+{{- define "commons-operator.image" -}}
 {{- printf "%s/%s:%s" .Values.image.repository .Chart.Name (.Values.image.tag | default .Chart.AppVersion) -}}
 {{- end }}
