@@ -2,9 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "operator.fullname" . }}-clusterrole
+  name: {{ include "commons-operator.fullname" . }}-clusterrole
   labels:
-  {{- include "operator.labels" . | nindent 4 }}
+  {{- include "commons-operator.labels" . | nindent 4 }}
 rules:
   # Watch pods to detect expired restart annotations.
   # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
