@@ -10,8 +10,10 @@ use stackable_operator::{
     YamlSchema as _,
     cli::{Command, RunArguments},
     crd::{
+        action::{AgentRequest, AgentRequestVersion},
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
+        scaler::{Scaler, ScalerVersion},
     },
     eos::EndOfSupportChecker,
     shared::yaml::SerializeOptions,
@@ -61,6 +63,10 @@ async fn main() -> anyhow::Result<()> {
             S3Connection::merged_crd(S3ConnectionVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
+            AgentRequest::merged_crd(AgentRequestVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
+            Scaler::merged_crd(ScalerVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {
