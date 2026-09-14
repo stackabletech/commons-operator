@@ -1,3 +1,3 @@
 = CRD reference
 
-Find all CRD reference for the Stackable Commons Operator at: {crd-docs-base-url}/commons-operator/{crd-docs-version}.
+Find all CRD reference for the Stackable Commons Operator at: {crd-ref}{crd-ref-release}&operator=commons-operator.
