@@ -110,13 +110,25 @@
       "title": "Pod security context",
       "description": "Pod-level security context for the operator pod, for example fsGroup. Passed through to Kubernetes unchanged. Applies to the operator pod only.",
       "type": "object",
-      "default": {}
+      "default": {
+        "runAsNonRoot": true,
+        "seccompProfile": {
+          "type": "RuntimeDefault"
+        }
+      }
     },
     "securityContext": {
       "title": "Container security context",
       "description": "Container-level security context for the operator container, for example readOnlyRootFilesystem or runAsNonRoot. Passed through to Kubernetes unchanged. Applies to the operator container only.",
       "type": "object",
-      "default": {}
+      "default": {
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        }
+      }
     },
     "resources": {
       "title": "Resource requests and limits",
