@@ -4,9 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Add `/ready` endpoint to the operator Deployment, which reports the CRD installation status ([#461]).
+
 ### Changed
 
 - Bump stackable-operator to 0.116.0 ([#439], [#443], [#444]).
+- Bump stackable-operator to 0.119.0 ([#461]).
+- Extend Helm deployed RBAC permissions to list and watch customresourcedefinitions required for startup condition ([#461]).
 
 ### Fixed
 
@@ -17,6 +23,7 @@ All notable changes to this project will be documented in this file.
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
 [#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#444]: https://github.com/stackabletech/commons-operator/pull/444
+[#461]: https://github.com/stackabletech/commons-operator/pull/461
 
 ## [26.7.0] - 2026-07-21
 
