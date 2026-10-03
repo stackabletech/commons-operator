@@ -1,7 +1,7 @@
 = Stackable Commons Operator
 :description: Learn about shared objects (AuthenticationClass, S3Bucket and S3Connection) and shared functionality (restarting) on the Stackable Data Platform.
 :github: https://github.com/stackabletech/commons-operator/
-:crd: {crd-docs-base-url}/commons-operator/{crd-docs-version}/
+:crd: {crd-ref}{crd-ref-release}&operator=commons-operator
 
 [.link-bar]
 * {github}[GitHub {external-link-icon}^]
