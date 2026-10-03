@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Bump stackable-operator to 0.116.0 ([#439], [#443], [#444]).
+- The operator Deployment runs with a restricted security context, so it can be deployed into namespaces that enforce the `restricted` Pod Security Standard ([#462]).
 
 ### Fixed
 
@@ -17,6 +18,7 @@ All notable changes to this project will be documented in this file.
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
 [#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#444]: https://github.com/stackabletech/commons-operator/pull/444
+[#462]: https://github.com/stackabletech/commons-operator/pull/462
 
 ## [26.7.0] - 2026-07-21
 
