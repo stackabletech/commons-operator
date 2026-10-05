@@ -2,9 +2,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "operator.fullname" . }}-clusterrole
+  name: {{ include "commons-operator.fullname" . }}-clusterrole
   labels:
-  {{- include "operator.labels" . | nindent 4 }}
+  {{- include "commons-operator.labels" . | nindent 4 }}
 rules:
   # Watch pods to detect expired restart annotations.
   # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
@@ -57,14 +57,19 @@ rules:
     verbs:
       - create
       - patch
-{{ if .Values.maintenance.customResourceDefinitions.maintain }}
-  # Required to maintain the CRD with auto-generated and rotated webhook
-  # certificates.
+  # Required for maintaining the CRDs within the operator (including the conversion webhook info).
+  # Also for the startup condition check before the controller can run.
   - apiGroups:
       - apiextensions.k8s.io
     resources:
       - customresourcedefinitions
     verbs:
+      # The operator writes the generated webhook certificate into the CRD's
+      # conversion webhook configuration.
+      {{- if .Values.maintenance.customResourceDefinitions.maintain }}
       - create
       - patch
-{{ end }}
+      {{- end }}
+      # Required for startup condition
+      - list
+      - watch

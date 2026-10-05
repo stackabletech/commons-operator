@@ -61,6 +61,16 @@ spec:
 ...
 ----
 
+==== Pod template annotations
+
+To detect changes, the operator adds an annotation for every referenced ConfigMap and Secret to the Pod template of the StatefulSet.
+Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID and resource version of the referenced object (or `changes-ignored` if it is excluded as described above).
+Kubernetes rolling-restarts the Pods whenever one of these values changes.
+These annotations are managed by the operator, there is no need to set them yourself.
+
+Object names can be up to 253 characters long, but Kubernetes limits the part of an annotation key after the `/` to 63 characters.
+Longer names are therefore truncated and filled up with the hash of the original name to make sure there are no clashes.
+
 == ConfigMap/Secret
 
 Label:: `restarter.stackable.tech/ignore`

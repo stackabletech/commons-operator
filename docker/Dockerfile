@@ -26,6 +26,7 @@ ARG VERSION
 ARG RELEASE="1"
 
 # These are chosen at random and are this high on purpose to have very little chance to clash with an existing user or group on the host system
+# NOTE: Please also update default.nix accordingly!
 ARG STACKABLE_USER_GID="574654813"
 ARG STACKABLE_USER_UID="782252253"
 ARG STACKABLE_USER_NAME="stackable"
@@ -66,7 +67,7 @@ LABEL org.opencontainers.image.authors="info@stackable.tech"
 LABEL org.opencontainers.image.url="https://stackable.tech"
 LABEL org.opencontainers.image.vendor="Stackable GmbH"
 LABEL org.opencontainers.image.licenses="OSL-3.0"
-LABEL org.opencontainers.image.documentation="https://docs.stackable.tech/home/stable/commons/"
+LABEL org.opencontainers.image.documentation="https://docs.stackable.tech/home/stable/commons-operator/"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${RELEASE}"
 LABEL org.opencontainers.image.title="Stackable Operator for Stackable Commons"
@@ -74,7 +75,7 @@ LABEL org.opencontainers.image.description="Deploy and manage Stackable Commons 
 
 # https://docs.openshift.com/container-platform/4.16/openshift_images/create-images.html#defining-image-metadata
 # https://github.com/projectatomic/ContainerApplicationGenericLabels/blob/master/vendor/redhat/labels.md
-LABEL io.openshift.tags="ubi10,stackable,sdp,commons"
+LABEL io.openshift.tags="ubi10,stackable,sdp,commons-operator"
 LABEL io.k8s.description="Deploy and manage Stackable Commons clusters."
 LABEL io.k8s.display-name="Stackable Operator for Stackable Commons"
 

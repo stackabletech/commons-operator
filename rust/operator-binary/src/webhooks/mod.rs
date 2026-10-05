@@ -4,7 +4,10 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     cli::OperatorEnvironmentOptions,
     kube::Client,
-    webhook::{WebhookServer, WebhookServerError, WebhookServerOptions, webhooks::Webhook},
+    webhook::{
+        WebhookServer, WebhookServerError, WebhookServerOptions, health::HealthCheckRegistry,
+        webhooks::Webhook,
+    },
 };
 
 use crate::restart_controller::statefulset::Ctx;
@@ -23,6 +26,7 @@ pub async fn create_webhook_server(
     operator_environment: &OperatorEnvironmentOptions,
     disable_restarter_mutating_webhook: bool,
     disable_crd_maintenance: bool,
+    readiness_checks: HealthCheckRegistry,
     client: Client,
 ) -> Result<WebhookServer, Error> {
     let mut webhooks: Vec<Box<dyn Webhook>> = vec![];
@@ -45,7 +49,7 @@ pub async fn create_webhook_server(
         webhook_service_name: operator_environment.operator_service_name.to_owned(),
     };
 
-    WebhookServer::new(webhooks, webhook_options)
+    WebhookServer::new(webhooks, webhook_options, readiness_checks)
         .await
         .context(CreateWebhookServerSnafu)
 }
