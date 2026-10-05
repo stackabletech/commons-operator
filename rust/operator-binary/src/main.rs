@@ -10,13 +10,15 @@ use stackable_operator::{
     YamlSchema as _,
     cli::{Command, RunArguments},
     crd::{
-        authentication::core::{AuthenticationClass, AuthenticationClassVersion},
-        s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
+        authentication::core::{self, AuthenticationClass, AuthenticationClassVersion},
+        s3::{self, S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
     },
     eos::EndOfSupportChecker,
+    kube::CustomResourceExt,
     shared::yaml::SerializeOptions,
     telemetry::Tracing,
-    utils::signal::SignalWatcher,
+    utils::signal::{self, SignalWatcher},
+    webhook::health::HealthCheckRegistry,
 };
 use webhooks::create_webhook_server;
 
@@ -107,11 +109,26 @@ async fn main() -> anyhow::Result<()> {
 
             let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
 
+            let mut readiness_checks = HealthCheckRegistry::new();
+            let authentication_class_crd_check = readiness_checks.register(format!(
+                "CRD {crd} established",
+                crd = core::v1alpha1::AuthenticationClass::crd_name()
+            ));
+            let s3_connection_crd_check = readiness_checks.register(format!(
+                "CRD {crd} established",
+                crd = s3::v1alpha1::S3Connection::crd_name()
+            ));
+            let s3_bucket_crd_check = readiness_checks.register(format!(
+                "CRD {crd} established",
+                crd = s3::v1alpha1::S3Bucket::crd_name()
+            ));
+
             let webhook_server = create_webhook_server(
                 ctx.clone(),
                 &operator_environment,
                 disable_restarter_mutating_webhook,
                 maintenance.disable_crd_maintenance,
+                readiness_checks,
                 client.as_kube_client(),
             )
             .await?;
@@ -133,11 +150,23 @@ async fn main() -> anyhow::Result<()> {
                 .run(sigterm_watcher.handle())
                 .map_err(|err| anyhow!(err).context("failed to run webhook"));
 
+            let crds_established = async {
+                signal::crd_established(&client, core::v1alpha1::AuthenticationClass::crd_name())
+                    .await?;
+                authentication_class_crd_check.mark_passed();
+                signal::crd_established(&client, s3::v1alpha1::S3Connection::crd_name()).await?;
+                s3_connection_crd_check.mark_passed();
+                signal::crd_established(&client, s3::v1alpha1::S3Bucket::crd_name()).await?;
+                s3_bucket_crd_check.mark_passed();
+                anyhow::Ok(())
+            };
+
             futures::try_join!(
                 sts_restart_controller,
                 pod_restart_controller,
                 webhook_server,
                 eos_checker,
+                crds_established,
             )?;
         }
     }
