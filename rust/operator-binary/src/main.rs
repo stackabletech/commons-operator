@@ -11,7 +11,7 @@ use stackable_operator::{
     cli::{Command, RunArguments},
     crd::{
         authentication::core::{self, AuthenticationClass, AuthenticationClassVersion},
-        openlineage::{OpenLineageConnection, OpenLineageConnectionVersion},
+        openlineage::{self, OpenLineageConnection, OpenLineageConnectionVersion},
         s3::{self, S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
     },
     eos::EndOfSupportChecker,
@@ -125,7 +125,10 @@ async fn main() -> anyhow::Result<()> {
                 "CRD {crd} established",
                 crd = s3::v1alpha1::S3Bucket::crd_name()
             ));
-
+            let openlineage_connection_crd_check = readiness_checks.register(format!(
+                "CRD {crd} established",
+                crd = openlineage::v1alpha1::OpenLineageConnection::crd_name()
+            ));
             let webhook_server = create_webhook_server(
                 ctx.clone(),
                 &operator_environment,
@@ -161,6 +164,12 @@ async fn main() -> anyhow::Result<()> {
                 s3_connection_crd_check.mark_passed();
                 signal::crd_established(&client, s3::v1alpha1::S3Bucket::crd_name()).await?;
                 s3_bucket_crd_check.mark_passed();
+                signal::crd_established(
+                    &client,
+                    openlineage::v1alpha1::OpenLineageConnection::crd_name(),
+                )
+                .await?;
+                openlineage_connection_crd_check.mark_passed();
                 anyhow::Ok(())
             };
 
