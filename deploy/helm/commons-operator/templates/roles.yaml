@@ -64,8 +64,8 @@ rules:
     resources:
       - customresourcedefinitions
     verbs:
-      # Required to maintain the CRD. The operator needs to do this, as it needs to enter e.g. it's
-      # generated certificate in the conversion webhook.
+      # The operator writes the generated webhook certificate into the CRD's
+      # conversion webhook configuration.
       {{- if .Values.maintenance.customResourceDefinitions.maintain }}
       - create
       - patch
