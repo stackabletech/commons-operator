@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 - Bump stackable-operator to 0.119.0 ([#461]).
 - Extend Helm deployed RBAC permissions to list and watch customresourcedefinitions required for startup condition ([#461]).
 - The operator Deployment runs with a restricted security context, so it can be deployed into namespaces that enforce the `restricted` Pod Security Standard ([#462]).
-- 
+
 ### Fixed
 
 - Support ConfigMaps and Secrets with names longer than 63 characters. Previously the restarter put
