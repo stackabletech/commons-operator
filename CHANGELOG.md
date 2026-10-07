@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Install and manage the OpenLineageConnection custom resource definition ([#435]).
 - Add `/ready` endpoint to the operator Deployment, which reports the CRD installation status ([#461]).
 
 ### Changed
@@ -20,6 +21,7 @@ All notable changes to this project will be documented in this file.
   the object name into the name part of an annotation key, which Kubernetes limits to 63 characters,
   causing it to reject the entire StatefulSet ([#443]).
 
+[#435]: https://github.com/stackabletech/commons-operator/pull/435
 [#439]: https://github.com/stackabletech/commons-operator/pull/439
 [#443]: https://github.com/stackabletech/commons-operator/pull/443
 [#444]: https://github.com/stackabletech/commons-operator/pull/444

@@ -41,3 +41,8 @@ annotations:
       name: s3buckets.s3.stackable.tech
       displayName: S3Bucket
       description: S3 bucket specification containing the bucket name and an inlined or referenced connection specification.
+    - kind: OpenLineageConnection
+      version: v1alpha1
+      name: openlineageconnections.lineage.stackable.tech
+      displayName: OpenLineageConnection
+      description: A reusable definition of a connection to an OpenLineage backend.
