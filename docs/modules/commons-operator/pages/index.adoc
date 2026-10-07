@@ -18,7 +18,7 @@ Likewise, the S3 related objects provide single configuration points for S3 stor
 
 Because these objects are used throughout the whole platform, the documentation is also mostly found at the platform level.
 Read the xref:concepts:authentication.adoc[authentication] concepts page to learn about the AuthenticationClass and learn about S3 on the xref:concepts:s3.adoc[S3 resources] page.
-You can also find the full CRD refererence documentation for all objects linked above.
+You can also find the full CRD reference documentation for all objects linked above.
 
 == Shared functionality
 
