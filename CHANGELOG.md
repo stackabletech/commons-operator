@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Install and manage the OpenLineageConnection custom resource definition ([#435]).
+- Install and manage the OpenLineageConnection Custom Resource Definition ([#435]).
 - Add `/ready` endpoint to the operator Deployment, which reports the CRD installation status ([#461]).
 
 ### Changed
