@@ -14,19 +14,23 @@ use crate::FIELD_MANAGER;
 pub fn create_webhook(disable_crd_maintenance: bool, client: Client) -> Box<impl Webhook> {
     let crds_and_handlers = vec![
         (
-            AuthenticationClass::merged_crd(AuthenticationClassVersion::V1Alpha1).unwrap(),
+            AuthenticationClass::merged_crd(AuthenticationClassVersion::V1Alpha1)
+                .expect("the AuthenticationClass CRD versions must be mergeable"),
             AuthenticationClass::try_convert as fn(_) -> _,
         ),
         (
-            S3Connection::merged_crd(S3ConnectionVersion::V1Alpha1).unwrap(),
+            S3Connection::merged_crd(S3ConnectionVersion::V1Alpha1)
+                .expect("the S3Connection CRD versions must be mergeable"),
             S3Connection::try_convert as fn(_) -> _,
         ),
         (
-            S3Bucket::merged_crd(S3BucketVersion::V1Alpha1).unwrap(),
+            S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)
+                .expect("the S3Bucket CRD versions must be mergeable"),
             S3Bucket::try_convert as fn(_) -> _,
         ),
         (
-            OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1).unwrap(),
+            OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1)
+                .expect("the OpenLineageConnection CRD versions must be mergeable"),
             OpenLineageConnection::try_convert as fn(_) -> _,
         ),
         (
