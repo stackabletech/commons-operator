@@ -3,6 +3,7 @@ use stackable_operator::{
         authentication::core::{AuthenticationClass, AuthenticationClassVersion},
         openlineage::{OpenLineageConnection, OpenLineageConnectionVersion},
         s3::{S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
+        scaler::{Scaler, ScalerVersion},
     },
     kube::Client,
     webhook::webhooks::{ConversionWebhook, ConversionWebhookOptions, Webhook},
@@ -27,6 +28,11 @@ pub fn create_webhook(disable_crd_maintenance: bool, client: Client) -> Box<impl
         (
             OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1).unwrap(),
             OpenLineageConnection::try_convert as fn(_) -> _,
+        ),
+        (
+            Scaler::merged_crd(ScalerVersion::V1Alpha1)
+                .expect("the Scaler CRD versions must be mergeable"),
+            Scaler::try_convert as fn(_) -> _,
         ),
     ];
 
