@@ -67,6 +67,8 @@ async fn main() -> anyhow::Result<()> {
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
             OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
+            Scaler::merged_crd(ScalerVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {
             common:
