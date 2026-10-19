@@ -13,6 +13,7 @@ use stackable_operator::{
         authentication::core::{self, AuthenticationClass, AuthenticationClassVersion},
         openlineage::{self, OpenLineageConnection, OpenLineageConnectionVersion},
         s3::{self, S3Bucket, S3BucketVersion, S3Connection, S3ConnectionVersion},
+        scaler::{self, Scaler, ScalerVersion},
     },
     eos::EndOfSupportChecker,
     kube::CustomResourceExt,
@@ -66,6 +67,8 @@ async fn main() -> anyhow::Result<()> {
             S3Bucket::merged_crd(S3BucketVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
             OpenLineageConnection::merged_crd(OpenLineageConnectionVersion::V1Alpha1)?
+                .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
+            Scaler::merged_crd(ScalerVersion::V1Alpha1)?
                 .print_yaml_schema(built_info::PKG_VERSION, &SerializeOptions::default())?;
         }
         Command::Run(CommonsOperatorRunArguments {
@@ -129,6 +132,11 @@ async fn main() -> anyhow::Result<()> {
                 "CRD {crd} established",
                 crd = openlineage::v1alpha1::OpenLineageConnection::crd_name()
             ));
+            let scaler_crd_check = readiness_checks.register(format!(
+                "CRD {crd} established",
+                crd = scaler::v1alpha1::Scaler::crd_name()
+            ));
+
             let webhook_server = create_webhook_server(
                 ctx.clone(),
                 &operator_environment,
@@ -156,20 +164,29 @@ async fn main() -> anyhow::Result<()> {
                 .run(sigterm_watcher.handle())
                 .map_err(|err| anyhow!(err).context("failed to run webhook"));
 
+            // NOTE (@Techassi): This is far from optimal, I don't really like it. I will come up
+            // with something better down the line.
             let crds_established = async {
                 signal::crd_established(&client, core::v1alpha1::AuthenticationClass::crd_name())
                     .await?;
                 authentication_class_crd_check.mark_passed();
+
                 signal::crd_established(&client, s3::v1alpha1::S3Connection::crd_name()).await?;
                 s3_connection_crd_check.mark_passed();
+
                 signal::crd_established(&client, s3::v1alpha1::S3Bucket::crd_name()).await?;
                 s3_bucket_crd_check.mark_passed();
+
                 signal::crd_established(
                     &client,
                     openlineage::v1alpha1::OpenLineageConnection::crd_name(),
                 )
                 .await?;
                 openlineage_connection_crd_check.mark_passed();
+
+                signal::crd_established(&client, scaler::v1alpha1::Scaler::crd_name()).await?;
+                scaler_crd_check.mark_passed();
+
                 anyhow::Ok(())
             };
 
