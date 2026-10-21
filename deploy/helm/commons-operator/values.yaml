@@ -44,6 +44,9 @@ securityContext:
   capabilities:
     drop:
       - ALL
+  # Not part of the restricted profile.
+  # Anything the operator writes has to go to a mounted volume.
+  readOnlyRootFilesystem: true
 
 resources:
   limits:
