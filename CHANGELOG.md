@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Bump stackable-operator to 0.121.0 ([#466]).
 - Extend Helm deployed RBAC permissions to list and watch customresourcedefinitions required for startup condition ([#461]).
 - The operator Deployment runs with a restricted security context, so it can be deployed into namespaces that enforce the `restricted` Pod Security Standard ([#462]).
+- The operator Deployment runs with a read-only root filesystem ([#469]).
 
 ### Fixed
 
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 [#461]: https://github.com/stackabletech/commons-operator/pull/461
 [#462]: https://github.com/stackabletech/commons-operator/pull/462
 [#466]: https://github.com/stackabletech/commons-operator/pull/466
+[#469]: https://github.com/stackabletech/commons-operator/pull/469
 
 ## [26.7.0] - 2026-07-21
 
