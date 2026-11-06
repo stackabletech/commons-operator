@@ -1,4 +1,5 @@
 = Usage
+:description: Overview of the Stackable commons operator, covering the restarter, which watches Pods and their controllers and restarts them when required.
 
 The commons-operator is used for multiple purposes:
 
