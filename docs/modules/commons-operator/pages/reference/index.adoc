@@ -1,4 +1,5 @@
 = Reference
+:description: Reference for the Stackable commons operator, covering CRD fields and environment variables, with their descriptions and default values.
 
 Consult the reference documentation section to find exhaustive information on:
 
