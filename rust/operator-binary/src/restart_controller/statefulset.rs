@@ -331,6 +331,15 @@ pub async fn get_updated_restarter_annotations(
         let cm_name = &cm_ref.name;
         let cm = cms.get(&cm_ref);
 
+        // It is intended that "changes-ignored" is also used if the ConfigMap is not in the store,
+        // i.e. it doesn't exist (yet), e.g. because the StatefulSet was created before the
+        // ConfigMap, or it has the label `restarter.stackable.tech/ignore=true` (filtered out by the
+        // watcher). Once the ConfigMap shows up, the value changes to its uid/resourceVersion
+        // (unless ignored via the StatefulSet annotations), which restarts the Pods so that they
+        // pick it up.
+        // Leaving out the annotation instead would not avoid any restart, but cause additional
+        // ones, e.g. when an object ignored via a StatefulSet annotation is created after the
+        // StatefulSet.
         let value = if let Some(cm) = cm
             && let Some(uid) = &cm.metadata.uid
             && let Some(resource_version) = &cm.metadata.resource_version
@@ -383,6 +392,7 @@ pub async fn get_updated_restarter_annotations(
         let secret_name = &secret_ref.name;
         let secret = secrets.get(&secret_ref);
 
+        // Same as for ConfigMaps above, "changes-ignored" is intended for Secrets not in the store.
         let value = if let Some(secret) = secret
             && let Some(uid) = &secret.metadata.uid
             && let Some(resource_version) = &secret.metadata.resource_version
