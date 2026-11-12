@@ -64,7 +64,10 @@ spec:
 ==== Pod template annotations
 
 To detect changes, the operator adds an annotation for every referenced ConfigMap and Secret to the Pod template of the StatefulSet.
-Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID and resource version of the referenced object (or `changes-ignored` if it is excluded as described above).
+Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID and resource version of the referenced object.
+The value is `changes-ignored` instead if the object is excluded, either by the StatefulSet annotations described above or by the `restarter.stackable.tech/ignore` label described below.
+The value is also `changes-ignored` if the referenced object does not exist (yet), for example because the StatefulSet was created before a mounted Secret.
+This is intended: once the object is created, the value changes to its UID and resource version (unless it is excluded), and the Pods are restarted to pick it up.
 Kubernetes rolling-restarts the Pods whenever one of these values changes.
 These annotations are managed by the operator, there is no need to set them yourself.
 
