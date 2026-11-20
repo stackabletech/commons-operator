@@ -70,7 +70,9 @@ This annotation selects what counts as a change of a referenced ConfigMap or Sec
 Writes by third parties that leave the content as it is do not restart the Pods.
 To hash the content, the operator reads a referenced object whenever its resource version changes.
 It only keeps the hash, not the content.
-Anyone who can read the StatefulSet or its Pods can use the hash to verify guesses of a Secret's content, so keep low-entropy Secrets such as user-chosen passwords on `resource-version`.
+The hash is keyed with a random key that only the operator can read and bound to the UID of the object, so the hash in the Pod template annotations reveals nothing about the content beyond whether it changed.
+On the first use of `data-hash`, the operator creates this key in the Secret `commons-operator-restarter-digest-key` in its own namespace.
+Deleting that Secret, or the namespace, makes the operator create a new key on its next start, which changes every hash and therefore rolling-restarts every StatefulSet using `data-hash` once.
 
 With any other value, the operator logs an error and stops updating the Pod template annotations of the StatefulSet until the value is fixed.
 Switching between the mechanisms changes the values of the Pod template annotations described below and therefore rolling-restarts the StatefulSet once.

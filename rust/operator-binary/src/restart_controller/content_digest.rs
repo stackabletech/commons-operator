@@ -4,14 +4,20 @@
 //! The restarter only watches the metadata of ConfigMaps and Secrets. The content of an object is
 //! fetched on demand, only when a StatefulSet using `data-hash` references it, and only once per
 //! resourceVersion: the [`DigestCache`] keeps the digest, never the content.
+//!
+//! The digests are keyed with a [`DigestKey`] and bound to the uid of their object, so that anyone
+//! who can read them in the Pod template annotations learns nothing about the content beyond
+//! whether it changed.
 
 use std::{
     collections::HashMap,
     future::Future,
+    marker::PhantomData,
     sync::{Mutex, MutexGuard},
 };
 
-use sha2::{Digest, Sha256};
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use stackable_operator::{
     k8s_openapi::{
         api::core::v1::{ConfigMap, Secret},
@@ -20,49 +26,62 @@ use stackable_operator::{
     kube::Resource,
 };
 
+use crate::restart_controller::digest_key::DigestKey;
+
 /// An object whose content can be digested.
 pub trait ContentDigest: Resource<DynamicType = ()> {
-    /// Digest over the parts of the object that a Pod can read.
-    fn content_digest(&self) -> String;
+    /// Keyed digest over the parts of the object that a Pod can read, bound to the object's `uid`.
+    fn content_digest(&self, uid: &str, digest_key: &DigestKey) -> String;
 }
 
 impl ContentDigest for ConfigMap {
-    fn content_digest(&self) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(b"configmap/data");
+    fn content_digest(&self, uid: &str, digest_key: &DigestKey) -> String {
+        let mut mac = object_mac(uid, digest_key);
+        mac.update(b"configmap/data");
         for (key, value) in self.data.iter().flatten() {
-            update_entry(&mut hasher, key, value.as_bytes());
+            update_entry(&mut mac, key, value.as_bytes());
         }
-        hasher.update(b"configmap/binaryData");
+        mac.update(b"configmap/binaryData");
         for (key, value) in self.binary_data.iter().flatten() {
-            update_entry(&mut hasher, key, &value.0);
+            update_entry(&mut mac, key, &value.0);
         }
-        finish_digest(hasher)
+        finish_digest(mac)
     }
 }
 
 impl ContentDigest for Secret {
-    fn content_digest(&self) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(b"secret/data");
+    fn content_digest(&self, uid: &str, digest_key: &DigestKey) -> String {
+        let mut mac = object_mac(uid, digest_key);
+        mac.update(b"secret/data");
         for (key, value) in self.data.iter().flatten() {
-            update_entry(&mut hasher, key, &value.0);
+            update_entry(&mut mac, key, &value.0);
         }
-        finish_digest(hasher)
+        finish_digest(mac)
     }
 }
 
-/// Adds one key/value pair to `hasher`, length-prefixed.
-fn update_entry(hasher: &mut Sha256, key: &str, value: &[u8]) {
-    hasher.update((key.len() as u64).to_be_bytes());
-    hasher.update(key.as_bytes());
-    hasher.update((value.len() as u64).to_be_bytes());
-    hasher.update(value);
+/// Returns a new MAC keyed with `digest_key` and bound to the object with the given `uid`.
+///
+/// Binding to the uid keeps the digests of different objects apart, even with identical content.
+/// Otherwise anyone able to create an object could have the operator digest guesses of another
+/// object's content and compare the results.
+fn object_mac(uid: &str, digest_key: &DigestKey) -> Hmac<Sha256> {
+    let mut mac = digest_key.mac();
+    update_entry(&mut mac, "uid", uid.as_bytes());
+    mac
+}
+
+/// Adds one key/value pair to `mac`, length-prefixed.
+fn update_entry(mac: &mut Hmac<Sha256>, key: &str, value: &[u8]) {
+    mac.update(&(key.len() as u64).to_be_bytes());
+    mac.update(key.as_bytes());
+    mac.update(&(value.len() as u64).to_be_bytes());
+    mac.update(value);
 }
 
 /// Truncates the digest to 128 bits and hex-encodes it.
-fn finish_digest(hasher: Sha256) -> String {
-    hasher.finalize()[..16]
+fn finish_digest(mac: Hmac<Sha256>) -> String {
+    mac.finalize().into_bytes()[..16]
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
@@ -81,40 +100,53 @@ pub struct CachedDigest {
 /// Namespace and name of a cached object.
 type CacheKey = (String, String);
 
-/// Content digests of the ConfigMaps or the Secrets referenced by StatefulSets using `data-hash`,
-/// keyed by namespace and name.
+/// Content digests of the objects of kind `K` referenced by StatefulSets using `data-hash`, keyed
+/// by namespace and name.
 ///
 /// An entry is replaced when the uid or resourceVersion changes, and removed when a fetch finds
 /// the object gone. Entries of objects deleted without a later fetch stay until the operator
 /// restarts. They cannot be served for a recreated object, which has a new uid, and are only a
 /// few hundred bytes each, so they are not tracked any further.
-#[derive(Debug, Default)]
-pub struct DigestCache {
+#[derive(Debug)]
+pub struct DigestCache<K> {
     entries: Mutex<HashMap<CacheKey, CachedDigest>>,
+    kind: PhantomData<fn() -> K>,
 }
 
-impl DigestCache {
+impl<K> Default for DigestCache<K> {
+    fn default() -> Self {
+        Self {
+            entries: Mutex::default(),
+            kind: PhantomData,
+        }
+    }
+}
+
+impl<K: ContentDigest> DigestCache<K> {
     /// Returns the digest of the object described by `metadata`, as seen by the metadata watch.
     ///
     /// The cached digest is used if it was computed for the same uid and resourceVersion,
     /// otherwise the object is fetched by calling `fetch` with its name and namespace, and its
     /// digest cached. Returns `None` if `metadata` lacks a name or namespace, or `fetch` does not
     /// find the object.
-    pub async fn get_or_fetch<'a, K, E, Fut>(
+    ///
+    /// All calls on one cache must pass the same `digest_key`, as the cached digests are not keyed
+    /// by it.
+    pub async fn get_or_fetch<'a, E, Fut>(
         &self,
         metadata: &'a ObjectMeta,
+        digest_key: &DigestKey,
         fetch: impl FnOnce(&'a str, &'a str) -> Fut,
     ) -> Result<Option<CachedDigest>, E>
     where
-        K: ContentDigest,
         Fut: Future<Output = Result<Option<K>, E>>,
     {
         let (Some(namespace), Some(name)) = (&metadata.namespace, &metadata.name) else {
             return Ok(None);
         };
-        let key = (namespace.clone(), name.clone());
+        let cache_key = (namespace.clone(), name.clone());
 
-        if let Some(cached) = self.lock().get(&key)
+        if let Some(cached) = self.lock().get(&cache_key)
             && Some(&cached.uid) == metadata.uid.as_ref()
             && Some(&cached.resource_version) == metadata.resource_version.as_ref()
         {
@@ -127,7 +159,7 @@ impl DigestCache {
             "Fetching object to digest its content"
         );
         let Some(object) = fetch(name, namespace).await? else {
-            self.lock().remove(&key);
+            self.lock().remove(&cache_key);
             return Ok(None);
         };
         let (Some(uid), Some(resource_version)) = (
@@ -137,11 +169,11 @@ impl DigestCache {
             return Ok(None);
         };
         let cached = CachedDigest {
+            digest: object.content_digest(&uid, digest_key),
             uid,
             resource_version,
-            digest: object.content_digest(),
         };
-        self.lock().insert(key, cached.clone());
+        self.lock().insert(cache_key, cached.clone());
 
         Ok(Some(cached))
     }
@@ -162,6 +194,10 @@ mod tests {
     };
 
     use super::*;
+
+    const TEST_KEY: DigestKey = DigestKey::new([42; 32]);
+
+    const TEST_UID: &str = "f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c";
 
     fn config_map(data: &[(&str, &str)]) -> ConfigMap {
         ConfigMap {
@@ -191,18 +227,9 @@ mod tests {
         }
     }
 
-    /// Fetches `object` and counts the calls in `calls`.
-    async fn fetch_counted<K>(
-        calls: &Cell<usize>,
-        object: Option<K>,
-    ) -> Result<Option<K>, Infallible> {
-        calls.set(calls.get() + 1);
-        Ok(object)
-    }
-
+    /// Changing the digest function rolling-restarts every StatefulSet using `data-hash`.
     #[test]
     fn digest_is_stable_across_releases() {
-        // Changing the digest function rolls every StatefulSet using data-hash
         let binary_config_map = ConfigMap {
             binary_data: Some([("foo".to_owned(), ByteString(b"bar".to_vec()))].into()),
             ..ConfigMap::default()
@@ -213,14 +240,17 @@ mod tests {
         };
 
         assert_eq!(
-            config_map(&[("foo", "bar")]).content_digest(),
-            "401bdc692ecd7b9bb6b02f186e2976c3"
+            config_map(&[("foo", "bar")]).content_digest(TEST_UID, &TEST_KEY),
+            "aec6a1a9a372bda7f4b7a600d631186f"
         );
         assert_eq!(
-            binary_config_map.content_digest(),
-            "20feddae4a413582dab5c1c2698ef5b8"
+            binary_config_map.content_digest(TEST_UID, &TEST_KEY),
+            "c2efb2422a076038e7e3affa23d7ffb1"
         );
-        assert_eq!(secret.content_digest(), "fa14a91ea83afdfe42d96880fe813616");
+        assert_eq!(
+            secret.content_digest(TEST_UID, &TEST_KEY),
+            "646f7311f8401d03267d18cf5419ba32"
+        );
     }
 
     #[test]
@@ -238,110 +268,76 @@ mod tests {
         };
 
         assert_eq!(
-            config_map(&[("foo", "bar")]).content_digest(),
-            changed.content_digest()
+            config_map(&[("foo", "bar")]).content_digest(TEST_UID, &TEST_KEY),
+            changed.content_digest(TEST_UID, &TEST_KEY)
         );
     }
 
+    /// Each pair would collide without the key, the uid binding, the length prefixes or the field
+    /// prefixes.
     #[test]
-    fn digest_distinguishes_ambiguous_entry_splits() {
-        // Without length prefixes these would hash identically.
-        assert_ne!(
-            config_map(&[("ab", "c")]).content_digest(),
-            config_map(&[("a", "bc")]).content_digest()
-        );
-    }
-
-    #[test]
-    fn digest_distinguishes_data_from_binary_data() {
+    fn digest_distinguishes_content() {
         let binary = ConfigMap {
             binary_data: Some([("foo".to_owned(), ByteString(b"bar".to_vec()))].into()),
             ..ConfigMap::default()
         };
+        let text = config_map(&[("foo", "bar")]);
 
-        assert_ne!(
-            config_map(&[("foo", "bar")]).content_digest(),
-            binary.content_digest()
-        );
-    }
-
-    #[tokio::test]
-    async fn cache_fetches_once_per_resource_version() {
-        let cache = DigestCache::default();
-        let calls = Cell::new(0);
-        let object = stored("uid-1", "100", &[("foo", "bar")]);
-
-        for _ in 0..3 {
-            let cached = cache
-                .get_or_fetch(&metadata("uid-1", "100"), |_, _| {
-                    fetch_counted(&calls, Some(object.clone()))
-                })
-                .await
-                .expect("fetching is infallible")
-                .expect("the object exists");
-            assert_eq!(cached.digest, object.content_digest());
-        }
-
-        assert_eq!(calls.get(), 1);
-    }
-
-    #[tokio::test]
-    async fn cache_refetches_when_resource_version_or_uid_changes() {
-        let cache = DigestCache::default();
-        let calls = Cell::new(0);
-
-        for (uid, resource_version, content) in [
-            ("uid-1", "100", "bar"),
-            ("uid-1", "101", "baz"),
-            ("uid-2", "101", "qux"),
+        for (left, right) in [
+            (
+                text.content_digest(TEST_UID, &TEST_KEY),
+                text.content_digest(TEST_UID, &DigestKey::new([43; 32])),
+            ),
+            (
+                text.content_digest(TEST_UID, &TEST_KEY),
+                text.content_digest("0b6f1a52-2d1e-4c43-8c55-5ad3d3a4e7f1", &TEST_KEY),
+            ),
+            (
+                config_map(&[("ab", "c")]).content_digest(TEST_UID, &TEST_KEY),
+                config_map(&[("a", "bc")]).content_digest(TEST_UID, &TEST_KEY),
+            ),
+            (
+                text.content_digest(TEST_UID, &TEST_KEY),
+                binary.content_digest(TEST_UID, &TEST_KEY),
+            ),
         ] {
-            let object = stored(uid, resource_version, &[("foo", content)]);
+            assert_ne!(left, right);
+        }
+    }
+
+    /// Each step looks the object up by uid and resourceVersion, with the content a fetch returns
+    /// (`None` if the object is gone) and whether the cache has to fetch it.
+    #[tokio::test]
+    async fn cache_fetches_once_per_uid_and_resource_version() {
+        let cache = DigestCache::<ConfigMap>::default();
+
+        for (uid, resource_version, content, fetches) in [
+            ("uid-1", "100", Some("bar"), true),
+            ("uid-1", "100", Some("bar"), false),
+            ("uid-1", "101", Some("baz"), true),
+            ("uid-2", "101", Some("qux"), true),
+            ("uid-2", "102", None, true),
+            ("uid-2", "101", Some("qux"), true),
+        ] {
+            let fetched = Cell::new(false);
+            let object = content.map(|content| stored(uid, resource_version, &[("foo", content)]));
             let cached = cache
-                .get_or_fetch(&metadata(uid, resource_version), |_, _| {
-                    fetch_counted(&calls, Some(object.clone()))
+                .get_or_fetch(&metadata(uid, resource_version), &TEST_KEY, |_, _| {
+                    fetched.set(true);
+                    std::future::ready(Ok::<_, Infallible>(object.clone()))
                 })
                 .await
-                .expect("fetching is infallible")
-                .expect("the object exists");
+                .expect("fetching should be infallible");
 
+            assert_eq!(fetched.get(), fetches);
             assert_eq!(
                 cached,
-                CachedDigest {
+                object.map(|object| CachedDigest {
                     uid: uid.to_owned(),
                     resource_version: resource_version.to_owned(),
-                    digest: object.content_digest(),
-                }
+                    digest: object.content_digest(uid, &TEST_KEY),
+                })
             );
         }
-
-        assert_eq!(calls.get(), 3);
-    }
-
-    #[tokio::test]
-    async fn cache_forgets_objects_that_are_gone() {
-        let cache = DigestCache::default();
-        let calls = Cell::new(0);
-        let object = stored("uid-1", "100", &[("foo", "bar")]);
-        let existing = metadata("uid-1", "100");
-        let fetch_existing = |_, _| fetch_counted(&calls, Some(object.clone()));
-
-        cache
-            .get_or_fetch(&existing, fetch_existing)
-            .await
-            .expect("fetching is infallible");
-        let missing = cache
-            .get_or_fetch(&metadata("uid-1", "101"), |_, _| {
-                fetch_counted::<ConfigMap>(&calls, None)
-            })
-            .await
-            .expect("fetching is infallible");
-
-        assert_eq!(missing, None);
-
-        cache
-            .get_or_fetch(&existing, fetch_existing)
-            .await
-            .expect("fetching is infallible");
-        assert_eq!(calls.get(), 3);
     }
 }

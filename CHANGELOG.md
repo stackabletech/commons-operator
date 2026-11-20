@@ -22,7 +22,8 @@ All notable changes to this project will be documented in this file.
 - The operator Deployment runs with a restricted security context, so it can be deployed into namespaces that enforce the `restricted` Pod Security Standard ([#462]).
 - The operator Deployment runs with a read-only root filesystem ([#469]).
 - Extend Helm deployed RBAC permissions to get configmaps and secrets, required to digest their
-  content for the `data-hash` change tracking mechanism ([#449]).
+  content for the `data-hash` change tracking mechanism, and to create secrets in the operator
+  namespace, required to store the key of these digests ([#449]).
 
 ### Fixed
 

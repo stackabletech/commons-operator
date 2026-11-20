@@ -96,9 +96,12 @@ fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfigur
             //
             // We read in the state of the world using the ConfigMap and Secret store and, for the
             // `data-hash` change tracking mechanism, by fetching the referenced ConfigMaps and
-            // Secrets. So, technically our outcome depends on external factors, *but* this webhook
-            // only reads and is not creating or changing any external objects, so from our
-            // understanding it's side-effect free.
+            // Secrets. So, technically our outcome depends on external factors.
+            // The only object this webhook may create is the Secret holding the digest key of
+            // `data-hash`, on its first use (see `DigestKeyStore`). Creating it is idempotent and
+            // happens on the first reconcile of such a StatefulSet anyway, so even when triggered
+            // by a dry-run request it has no effect beyond what the real request would have. We
+            // therefore consider this webhook side-effect free.
             side_effects: "None".to_owned(),
             ..Default::default()
         }]),
@@ -138,11 +141,13 @@ async fn add_sts_restarter_annotations_handler(
     let annotations = match get_updated_restarter_annotations(sts, ctx).await {
         Ok(annotations) => annotations,
         // Rejecting the StatefulSet would block its creation over a typo in the change tracking
-        // mechanism or a transient API error while fetching a ConfigMap or Secret. Admitting it
-        // without the annotations instead has the same outcome as `failure_policy: Ignore`: the
-        // controller adds them later, which restarts the Pods once.
+        // mechanism or an API error while fetching a ConfigMap or Secret or loading the digest key.
+        // Admitting it without the annotations instead has the same outcome as
+        // `failure_policy: Ignore`: the controller adds them later, which restarts the Pods once.
         Err(
-            err @ (Error::InvalidChangeTrackingMechanism { .. } | Error::FetchContentFailed { .. }),
+            err @ (Error::InvalidChangeTrackingMechanism { .. }
+            | Error::FetchContentFailed { .. }
+            | Error::LoadDigestKey { .. }),
         ) => {
             tracing::warn!(
                 error = &err as &dyn std::error::Error,

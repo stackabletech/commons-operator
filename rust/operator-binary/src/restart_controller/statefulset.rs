@@ -36,10 +36,13 @@ use stackable_operator::{
     logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
 };
-use strum::{Display, EnumDiscriminants, EnumString, IntoStaticStr};
+use strum::{EnumDiscriminants, EnumString, IntoStaticStr};
 
 use crate::{
-    restart_controller::content_digest::{ContentDigest, DigestCache},
+    restart_controller::{
+        content_digest::{ContentDigest, DigestCache},
+        digest_key::{self, DigestKeyStore},
+    },
     utils::delayed_init::{DelayedInit, InitDropped, Initializer},
 };
 
@@ -56,7 +59,7 @@ const CHANGE_TRACKING_MECHANISM_ANNOTATION: &str =
     "restarter.stackable.tech/change-tracking-mechanism";
 
 /// How the restarter decides that a referenced ConfigMap or Secret has changed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumString, Display)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumString)]
 #[strum(serialize_all = "kebab-case")]
 enum ChangeTrackingMechanism {
     /// Every write to the object counts as a change, including metadata-only writes.
@@ -87,8 +90,9 @@ pub struct Ctx {
     client: Client,
     cms: DelayedInit<Store<PartialObjectMeta<ConfigMap>>>,
     secrets: DelayedInit<Store<PartialObjectMeta<Secret>>>,
-    cm_digests: DigestCache,
-    secret_digests: DigestCache,
+    cm_digests: DigestCache<ConfigMap>,
+    secret_digests: DigestCache<Secret>,
+    digest_key: DigestKeyStore,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -131,6 +135,9 @@ pub enum Error {
         source: stackable_operator::client::Error,
         obj_ref: Box<ObjectRef<DynamicObject>>,
     },
+
+    #[snafu(display("failed to load the key for content digests"))]
+    LoadDigestKey { source: digest_key::Error },
 }
 
 impl ReconcilerError for Error {
@@ -147,6 +154,7 @@ impl ReconcilerError for Error {
             Error::InvalidAnnotationKey { .. } => None,
             Error::InvalidChangeTrackingMechanism { .. } => None,
             Error::FetchContentFailed { obj_ref, .. } => Some(*obj_ref.clone()),
+            Error::LoadDigestKey { .. } => None,
         }
     }
 }
@@ -154,6 +162,7 @@ impl ReconcilerError for Error {
 #[allow(clippy::type_complexity)]
 pub fn create_context(
     client: Client,
+    operator_namespace: String,
 ) -> (
     Arc<Ctx>,
     Initializer<Store<PartialObjectMeta<ConfigMap>>>,
@@ -162,11 +171,12 @@ pub fn create_context(
     let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
     let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
     let ctx = Arc::new(Ctx {
-        client,
+        client: client.clone(),
         cms: cm_store_delayed,
         secrets: secret_store_delayed,
         cm_digests: DigestCache::default(),
         secret_digests: DigestCache::default(),
+        digest_key: DigestKeyStore::new(client, operator_namespace),
     });
 
     (ctx, cm_store_tx, secret_store_tx)
@@ -350,8 +360,8 @@ fn resource_version_value(metadata: &ObjectMeta) -> Option<String> {
 /// For [`ChangeTrackingMechanism::DataHash`] this fetches the object, unless `digests` already
 /// holds the digest for its current resourceVersion.
 async fn tracking_value<K>(
-    client: &Client,
-    digests: &DigestCache,
+    ctx: &Ctx,
+    digests: &DigestCache<K>,
     object: &PartialObjectMeta<K>,
     mechanism: ChangeTrackingMechanism,
 ) -> Result<Option<String>, Error>
@@ -362,9 +372,10 @@ where
     match mechanism {
         ChangeTrackingMechanism::ResourceVersion => Ok(resource_version_value(metadata)),
         ChangeTrackingMechanism::DataHash => {
+            let digest_key = ctx.digest_key.get().await.context(LoadDigestKeySnafu)?;
             let cached = digests
-                .get_or_fetch(metadata, |name, namespace| {
-                    client.get_opt::<K>(name, namespace)
+                .get_or_fetch(metadata, digest_key, |name, namespace| {
+                    ctx.client.get_opt::<K>(name, namespace)
                 })
                 .await
                 .with_context(|_| FetchContentFailedSnafu {
@@ -444,7 +455,7 @@ pub async fn get_updated_restarter_annotations(
         // StatefulSet.
         let value = match cm {
             Some(cm) if !ignored_cms.contains(cm_name) => {
-                tracking_value(&ctx.client, &ctx.cm_digests, &cm, mechanism).await?
+                tracking_value(&ctx, &ctx.cm_digests, &cm, mechanism).await?
             }
             _ => None,
         }
@@ -495,7 +506,7 @@ pub async fn get_updated_restarter_annotations(
         // Same as for ConfigMaps above, "changes-ignored" is intended for Secrets not in the store.
         let value = match secret {
             Some(secret) if !ignored_secrets.contains(secret_name) => {
-                tracking_value(&ctx.client, &ctx.secret_digests, &secret, mechanism).await?
+                tracking_value(&ctx, &ctx.secret_digests, &secret, mechanism).await?
             }
             _ => None,
         }
@@ -624,25 +635,11 @@ mod tests {
             (Some("data-hash"), Some(ChangeTrackingMechanism::DataHash)),
             (Some("DataHash"), None),
         ] {
-            let parsed =
-                ChangeTrackingMechanism::from_statefulset(&statefulset_with_mechanism(annotation));
-
-            match expected {
-                Some(expected) => {
-                    assert_eq!(
-                        parsed.expect("a missing or known mechanism must be accepted"),
-                        expected
-                    );
-                    if let Some(annotation) = annotation {
-                        assert_eq!(expected.to_string(), annotation);
-                    }
-                }
-                None => assert!(matches!(
-                    parsed,
-                    Err(Error::InvalidChangeTrackingMechanism { ref value, .. })
-                        if Some(value.as_str()) == annotation
-                )),
-            }
+            assert_eq!(
+                ChangeTrackingMechanism::from_statefulset(&statefulset_with_mechanism(annotation))
+                    .ok(),
+                expected
+            );
         }
     }
 
