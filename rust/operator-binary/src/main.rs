@@ -110,7 +110,10 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
+            let (ctx, cm_store_tx, secret_store_tx) = create_context(
+                client.clone(),
+                operator_environment.operator_namespace.clone(),
+            );
 
             let mut readiness_checks = HealthCheckRegistry::new();
             let authentication_class_crd_check = readiness_checks.register(format!(

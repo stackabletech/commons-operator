@@ -23,7 +23,7 @@ use stackable_operator::{
 
 use crate::{
     FIELD_MANAGER, OPERATOR_NAME,
-    restart_controller::statefulset::{Ctx, get_updated_restarter_annotations},
+    restart_controller::statefulset::{Ctx, Error, get_updated_restarter_annotations},
 };
 
 pub fn create_webhook(
@@ -94,9 +94,14 @@ fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfigur
             // > Webhooks typically operate only on the content of the AdmissionReview sent to them.
             // > Some webhooks, however, make out-of-band changes as part of processing admission requests.
             //
-            // We read in the state of the world using the ConfigMap and Secret store.
-            // So, technically our outcome depends on external factors, *but* this webhook is not
-            // creating any external objects, so from our understanding it's side-effect free.
+            // We read in the state of the world using the ConfigMap and Secret store and, for the
+            // `data-hash` change tracking mechanism, by fetching the referenced ConfigMaps and
+            // Secrets. So, technically our outcome depends on external factors.
+            // The only object this webhook may create is the Secret holding the digest key of
+            // `data-hash`, on its first use (see `DigestKeyStore`). Creating it is idempotent and
+            // happens on the first reconcile of such a StatefulSet anyway, so even when triggered
+            // by a dry-run request it has no effect beyond what the real request would have. We
+            // therefore consider this webhook side-effect free.
             side_effects: "None".to_owned(),
             ..Default::default()
         }]),
@@ -135,6 +140,21 @@ async fn add_sts_restarter_annotations_handler(
 
     let annotations = match get_updated_restarter_annotations(sts, ctx).await {
         Ok(annotations) => annotations,
+        // Rejecting the StatefulSet would block its creation over a typo in the change tracking
+        // mechanism or an API error while fetching a ConfigMap or Secret or loading the digest key.
+        // Admitting it without the annotations instead has the same outcome as
+        // `failure_policy: Ignore`: the controller adds them later, which restarts the Pods once.
+        Err(
+            err @ (Error::InvalidChangeTrackingMechanism { .. }
+            | Error::FetchContentFailed { .. }
+            | Error::LoadDigestKey { .. }),
+        ) => {
+            tracing::warn!(
+                error = &err as &dyn std::error::Error,
+                "Admitting StatefulSet without restarter annotations"
+            );
+            return AdmissionResponse::from(&request);
+        }
         Err(err) => {
             return AdmissionResponse::invalid(format!(
                 "failed to get updated restarted annotations: {err:#}"

@@ -3612,10 +3612,10 @@ rec {
       };
       "granit-parser" = rec {
         crateName = "granit-parser";
-        version = "2.1.0";
+        version = "2.2.0";
         edition = "2021";
         crateBin = [];
-        sha256 = "1pq1ljzfc7n0sfx0f6la8f5p4lmj81n841rj293kvpylsj35bw05";
+        sha256 = "1j1d897qqxarylh7rjrq37469aaax9x33ljqnhbb8ybhkh6lvl4v";
         libName = "granit_parser";
         license = "MIT OR Apache-2.0";
         authors = [
@@ -6336,10 +6336,10 @@ rec {
       };
       "libz-sys" = rec {
         crateName = "libz-sys";
-        version = "1.1.31";
+        version = "1.1.33";
         edition = "2018";
         links = "z";
-        sha256 = "1cjw8nisxy5iv8yms7dsxwhclb26djl38n6xq4nmlqxxra73087z";
+        sha256 = "0ic0jc13vgz6fwcm12p7ss5bvl09mbkl52c2ip3v1ni18fgzbqzy";
         libName = "libz_sys";
         license = "MIT OR Apache-2.0";
         authors = [
@@ -9678,10 +9678,10 @@ rec {
       };
       "serde-saphyr" = rec {
         crateName = "serde-saphyr";
-        version = "2.1.0";
+        version = "2.2.0";
         edition = "2024";
         crateBin = [];
-        sha256 = "1diixjn80w882xrgqqqci3rdifj4f0nn0yg9lqbj8qy59xqw4k9z";
+        sha256 = "1n87f1lfymy00y0fnr4kjq9xn1pqp2zsv6szigsvnk9l941xx74n";
         libName = "serde_saphyr";
         license = "MIT OR Apache-2.0";
         dependencies = [
@@ -9692,7 +9692,7 @@ rec {
           }
           {
             name = "base64";
-            packageId = "base64 0.23.1";
+            packageId = "base64 0.22.1";
             optional = true;
           }
           {
@@ -10617,12 +10617,20 @@ rec {
             features = [ "compat" ];
           }
           {
+            name = "hmac";
+            packageId = "hmac";
+          }
+          {
             name = "http";
             packageId = "http";
           }
           {
             name = "json-patch";
             packageId = "json-patch";
+          }
+          {
+            name = "rand";
+            packageId = "rand 0.10.3";
           }
           {
             name = "serde";
@@ -10632,6 +10640,10 @@ rec {
           {
             name = "serde_json";
             packageId = "serde_json";
+          }
+          {
+            name = "sha2";
+            packageId = "sha2";
           }
           {
             name = "snafu";
