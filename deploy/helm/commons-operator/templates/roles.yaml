@@ -7,14 +7,23 @@ metadata:
   {{- include "commons-operator.labels" . | nindent 4 }}
 rules:
   # Watch pods to detect expired restart annotations.
-  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
   - apiGroups:
       - ""
     resources:
       - pods
+    verbs:
+      - list
+      - watch
+  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
+  # Get them to digest their content for StatefulSets using the change tracking mechanism
+  # data-hash (annotation restarter.stackable.tech/change-tracking-mechanism).
+  - apiGroups:
+      - ""
+    resources:
       - configmaps
       - secrets
     verbs:
+      - get
       - list
       - watch
   # For automatic cluster domain detection.

@@ -1,19 +1,19 @@
 use std::{
-    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
     future::Future,
-    marker::PhantomData,
     sync::Arc,
     time::Duration,
 };
 
-use futures::{Stream, StreamExt, TryStream, TryStreamExt, stream};
+use futures::{Stream, StreamExt, TryStream, stream};
+use serde::de::DeserializeOwned;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     k8s_openapi::{
+        NamespaceResourceScope,
         api::{
             apps::v1::StatefulSet,
             core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
@@ -22,13 +22,13 @@ use stackable_operator::{
     },
     kube::{
         self, Resource, ResourceExt,
-        api::{Patch, PatchParams},
+        api::{PartialObjectMeta, Patch, PatchParams},
         core::{DeserializeGuard, DynamicObject, error_boundary},
         runtime::{
             Config, WatchStreamExt, applier,
             controller::{Action, ReconcileRequest, trigger_self, trigger_with},
             events::{Recorder, Reporter},
-            reflector::{self, Lookup, ObjectRef, Store},
+            reflector::{self, ObjectRef, Store},
             watcher::{self, watcher},
         },
     },
@@ -36,9 +36,12 @@ use stackable_operator::{
     logging::controller::{ReconcilerError, report_controller_reconciled},
     namespace::WatchNamespace,
 };
-use strum::{EnumDiscriminants, IntoStaticStr};
+use strum::{Display, EnumDiscriminants, EnumString, IntoStaticStr};
 
-use crate::utils::delayed_init::{DelayedInit, InitDropped, Initializer};
+use crate::{
+    restart_controller::content_digest::{ContentDigest, DigestCache},
+    utils::delayed_init::{DelayedInit, InitDropped, Initializer},
+};
 
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
 
@@ -48,72 +51,44 @@ const CONFIGMAP_ANNOTATION_PREFIX: &str = "configmap.restarter.stackable.tech";
 /// Prefix of the Pod annotations tracking the referenced Secrets.
 const SECRET_ANNOTATION_PREFIX: &str = "secret.restarter.stackable.tech";
 
-/// A watched ConfigMap or Secret, reduced to its identity and a digest of its content.
-#[derive(Clone, Debug)]
-pub struct ContentDigest<K> {
-    name: Option<String>,
-    namespace: Option<String>,
-    uid: Option<String>,
-    resource_version: Option<String>,
-    digest: String,
-    _phantom: PhantomData<K>,
+/// StatefulSet annotation selecting the [`ChangeTrackingMechanism`].
+const CHANGE_TRACKING_MECHANISM_ANNOTATION: &str =
+    "restarter.stackable.tech/change-tracking-mechanism";
+
+/// How the restarter decides that a referenced ConfigMap or Secret has changed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, EnumString, Display)]
+#[strum(serialize_all = "kebab-case")]
+enum ChangeTrackingMechanism {
+    /// Every write to the object counts as a change, including metadata-only writes.
+    ///
+    /// Only needs the metadata of the object, which the restarter watches anyway.
+    #[default]
+    ResourceVersion,
+
+    /// Only changes to the content (`data` and `binaryData`) count as a change.
+    ///
+    /// Fetches the object whenever its resourceVersion changes, to digest its content.
+    DataHash,
 }
 
-impl<K> ContentDigest<K> {
-    fn new(metadata: ObjectMeta, digest: String) -> Self {
-        Self {
-            name: metadata.name,
-            namespace: metadata.namespace,
-            uid: metadata.uid,
-            resource_version: metadata.resource_version,
-            digest,
-            _phantom: PhantomData,
+impl ChangeTrackingMechanism {
+    /// Reads the mechanism from the StatefulSet annotation, falling back to the default.
+    fn from_statefulset(sts: &StatefulSet) -> Result<Self, Error> {
+        match sts.annotations().get(CHANGE_TRACKING_MECHANISM_ANNOTATION) {
+            Some(value) => value
+                .parse()
+                .context(InvalidChangeTrackingMechanismSnafu { value }),
+            None => Ok(Self::default()),
         }
-    }
-}
-
-/// Lets a [`Store`] cache these objects, keyed by name and namespace - so a
-/// `ContentDigest<ConfigMap>` is found under the same key as the ConfigMap it was made from.
-impl<K: Resource> Lookup for ContentDigest<K> {
-    type DynamicType = K::DynamicType;
-
-    fn kind(dt: &Self::DynamicType) -> Cow<'_, str> {
-        K::kind(dt)
-    }
-
-    fn group(dt: &Self::DynamicType) -> Cow<'_, str> {
-        K::group(dt)
-    }
-
-    fn version(dt: &Self::DynamicType) -> Cow<'_, str> {
-        K::version(dt)
-    }
-
-    fn plural(dt: &Self::DynamicType) -> Cow<'_, str> {
-        K::plural(dt)
-    }
-
-    fn name(&self) -> Option<Cow<'_, str>> {
-        self.name.as_deref().map(Cow::Borrowed)
-    }
-
-    fn namespace(&self) -> Option<Cow<'_, str>> {
-        self.namespace.as_deref().map(Cow::Borrowed)
-    }
-
-    fn resource_version(&self) -> Option<Cow<'_, str>> {
-        self.resource_version.as_deref().map(Cow::Borrowed)
-    }
-
-    fn uid(&self) -> Option<Cow<'_, str>> {
-        self.uid.as_deref().map(Cow::Borrowed)
     }
 }
 
 pub struct Ctx {
     client: Client,
-    cms: DelayedInit<Store<ContentDigest<ConfigMap>>>,
-    secrets: DelayedInit<Store<ContentDigest<Secret>>>,
+    cms: DelayedInit<Store<PartialObjectMeta<ConfigMap>>>,
+    secrets: DelayedInit<Store<PartialObjectMeta<Secret>>>,
+    cm_digests: DigestCache,
+    secret_digests: DigestCache,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -142,6 +117,20 @@ pub enum Error {
         source: KeyError,
         object_name: String,
     },
+
+    #[snafu(display(
+        "invalid value {value:?} for StatefulSet annotation {CHANGE_TRACKING_MECHANISM_ANNOTATION:?}, expected one of \"resource-version\" or \"data-hash\""
+    ))]
+    InvalidChangeTrackingMechanism {
+        source: strum::ParseError,
+        value: String,
+    },
+
+    #[snafu(display("failed to fetch {obj_ref} to digest its content"))]
+    FetchContentFailed {
+        source: stackable_operator::client::Error,
+        obj_ref: Box<ObjectRef<DynamicObject>>,
+    },
 }
 
 impl ReconcilerError for Error {
@@ -156,70 +145,9 @@ impl ReconcilerError for Error {
             Error::ConfigMapsUninitialized { .. } => None,
             Error::SecretsUninitialized { .. } => None,
             Error::InvalidAnnotationKey { .. } => None,
+            Error::InvalidChangeTrackingMechanism { .. } => None,
+            Error::FetchContentFailed { obj_ref, .. } => Some(*obj_ref.clone()),
         }
-    }
-}
-
-/// Adds one key/value pair to `hasher`, length-prefixed.
-fn update_entry(hasher: &mut Sha256, key: &str, value: &[u8]) {
-    hasher.update((key.len() as u64).to_be_bytes());
-    hasher.update(key.as_bytes());
-    hasher.update((value.len() as u64).to_be_bytes());
-    hasher.update(value);
-}
-
-/// Truncates the digest to 128 bits and hex-encodes it.
-fn finish_digest(hasher: Sha256) -> String {
-    hasher.finalize()[..16]
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
-/// Digest over the parts of a ConfigMap that a Pod can read.
-fn config_map_content_digest(config_map: &ConfigMap) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"configmap/data");
-    for (key, value) in config_map.data.iter().flatten() {
-        update_entry(&mut hasher, key, value.as_bytes());
-    }
-    hasher.update(b"configmap/binaryData");
-    for (key, value) in config_map.binary_data.iter().flatten() {
-        update_entry(&mut hasher, key, &value.0);
-    }
-    finish_digest(hasher)
-}
-
-/// Digest over the parts of a Secret that a Pod can read.
-fn secret_content_digest(secret: &Secret) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"secret/data");
-    for (key, value) in secret.data.iter().flatten() {
-        update_entry(&mut hasher, key, &value.0);
-    }
-    finish_digest(hasher)
-}
-
-/// Reduces a ConfigMap to what the restarter needs, dropping its content.
-fn digest_config_map(config_map: ConfigMap) -> ContentDigest<ConfigMap> {
-    let digest = config_map_content_digest(&config_map);
-    ContentDigest::new(config_map.metadata, digest)
-}
-
-/// Reduces a Secret to what the restarter needs, dropping its content.
-fn digest_secret(secret: Secret) -> ContentDigest<Secret> {
-    let digest = secret_content_digest(&secret);
-    ContentDigest::new(secret.metadata, digest)
-}
-
-/// Maps the object contained in a watcher event, changing its type.
-fn map_event<K, L>(event: watcher::Event<K>, f: impl FnOnce(K) -> L) -> watcher::Event<L> {
-    match event {
-        watcher::Event::Apply(obj) => watcher::Event::Apply(f(obj)),
-        watcher::Event::Delete(obj) => watcher::Event::Delete(f(obj)),
-        watcher::Event::InitApply(obj) => watcher::Event::InitApply(f(obj)),
-        watcher::Event::Init => watcher::Event::Init,
-        watcher::Event::InitDone => watcher::Event::InitDone,
     }
 }
 
@@ -228,8 +156,8 @@ pub fn create_context(
     client: Client,
 ) -> (
     Arc<Ctx>,
-    Initializer<Store<ContentDigest<ConfigMap>>>,
-    Initializer<Store<ContentDigest<Secret>>>,
+    Initializer<Store<PartialObjectMeta<ConfigMap>>>,
+    Initializer<Store<PartialObjectMeta<Secret>>>,
 ) {
     let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
     let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
@@ -237,6 +165,8 @@ pub fn create_context(
         client,
         cms: cm_store_delayed,
         secrets: secret_store_delayed,
+        cm_digests: DigestCache::default(),
+        secret_digests: DigestCache::default(),
     });
 
     (ctx, cm_store_tx, secret_store_tx)
@@ -244,19 +174,19 @@ pub fn create_context(
 
 pub async fn start<F>(
     ctx: Arc<Ctx>,
-    cm_store_tx: Initializer<Store<ContentDigest<ConfigMap>>>,
-    secret_store_tx: Initializer<Store<ContentDigest<Secret>>>,
+    cm_store_tx: Initializer<Store<PartialObjectMeta<ConfigMap>>>,
+    secret_store_tx: Initializer<Store<PartialObjectMeta<Secret>>>,
     watch_namespace: &WatchNamespace,
     shutdown_signal: F,
 ) where
     F: Future<Output = ()>,
 {
     let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(&ctx.client);
-    let cms = watch_namespace.get_api::<ConfigMap>(&ctx.client);
-    let secrets = watch_namespace.get_api::<Secret>(&ctx.client);
+    let cms = watch_namespace.get_api::<PartialObjectMeta<ConfigMap>>(&ctx.client);
+    let secrets = watch_namespace.get_api::<PartialObjectMeta<Secret>>(&ctx.client);
     let sts_store = reflector::store::Writer::<DeserializeGuard<StatefulSet>>::new(());
-    let cm_store = reflector::store::Writer::<ContentDigest<ConfigMap>>::new(());
-    let secret_store = reflector::store::Writer::<ContentDigest<Secret>>::new(());
+    let cm_store = reflector::store::Writer::<PartialObjectMeta<ConfigMap>>::new(());
+    let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
     let mut cm_store_tx = Some(cm_store_tx);
     let mut secret_store_tx = Some(secret_store_tx);
     let ctx2 = ctx.clone();
@@ -284,8 +214,7 @@ pub async fn start<F>(
                                 cms,
                                 watcher::Config::default()
                                     .labels("restarter.stackable.tech/ignore != true"),
-                            )
-                            .map_ok(|event| map_event(event, digest_config_map)),
+                            ),
                         )
                         .inspect(move |_| {
                             if let Some(tx) = cm_store_tx.take() {
@@ -305,8 +234,7 @@ pub async fn start<F>(
                                 secrets,
                                 watcher::Config::default()
                                     .labels("restarter.stackable.tech/ignore != true"),
-                            )
-                            .map_ok(|event| map_event(event, digest_secret)),
+                            ),
                         )
                         .inspect(move |_| {
                             if let Some(tx) = secret_store_tx.take() {
@@ -366,7 +294,7 @@ where
     })
 }
 
-fn find_pod_refs<'a, K: Lookup + 'a>(
+fn find_pod_refs<'a, K: Resource + 'a>(
     pod_spec: &'a PodSpec,
     volume_ref: impl Fn(&Volume) -> Option<ObjectRef<K>> + 'a,
     env_var_ref: impl Fn(&EnvVar) -> Option<ObjectRef<K>> + 'a,
@@ -407,6 +335,46 @@ fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
     Ok(key.to_string())
 }
 
+/// Value of the Pod template annotation tracking the object with the given `metadata` for
+/// `ChangeTrackingMechanism::ResourceVersion`, or `None` if the metadata lacks uid or
+/// resourceVersion.
+fn resource_version_value(metadata: &ObjectMeta) -> Option<String> {
+    let uid = metadata.uid.as_deref()?;
+    let resource_version = metadata.resource_version.as_deref()?;
+    Some(format!("{uid}/{resource_version}"))
+}
+
+/// Value of the Pod template annotation tracking `object` according to `mechanism`, or `None` if
+/// it cannot be determined, e.g. because the object was deleted in the meantime.
+///
+/// For [`ChangeTrackingMechanism::DataHash`] this fetches the object, unless `digests` already
+/// holds the digest for its current resourceVersion.
+async fn tracking_value<K>(
+    client: &Client,
+    digests: &DigestCache,
+    object: &PartialObjectMeta<K>,
+    mechanism: ChangeTrackingMechanism,
+) -> Result<Option<String>, Error>
+where
+    K: ContentDigest + Resource<Scope = NamespaceResourceScope> + Clone + Debug + DeserializeOwned,
+{
+    let metadata = &object.metadata;
+    match mechanism {
+        ChangeTrackingMechanism::ResourceVersion => Ok(resource_version_value(metadata)),
+        ChangeTrackingMechanism::DataHash => {
+            let cached = digests
+                .get_or_fetch(metadata, |name, namespace| {
+                    client.get_opt::<K>(name, namespace)
+                })
+                .await
+                .with_context(|_| FetchContentFailedSnafu {
+                    obj_ref: ObjectRef::from_obj(object).erase(),
+                })?;
+            Ok(cached.map(|cached| format!("{}/{}", cached.uid, cached.digest)))
+        }
+    }
+}
+
 pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
@@ -414,6 +382,7 @@ pub async fn get_updated_restarter_annotations(
     let ns = sts.metadata.namespace.as_deref().expect(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
+    let mechanism = ChangeTrackingMechanism::from_statefulset(sts)?;
 
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
@@ -427,12 +396,12 @@ pub async fn get_updated_restarter_annotations(
             find_pod_refs(
                 pod_spec,
                 |volume| {
-                    Some(ObjectRef::<ContentDigest<ConfigMap>>::new(
+                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
                         &volume.config_map.as_ref()?.name,
                     ))
                 },
                 |env_var| {
-                    Some(ObjectRef::<ContentDigest<ConfigMap>>::new(
+                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
                         &env_var
                             .value_from
                             .as_ref()?
@@ -442,7 +411,7 @@ pub async fn get_updated_restarter_annotations(
                     ))
                 },
                 |env_from| {
-                    Some(ObjectRef::<ContentDigest<ConfigMap>>::new(
+                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
                         &env_from.config_map_ref.as_ref()?.name,
                     ))
                 },
@@ -467,21 +436,19 @@ pub async fn get_updated_restarter_annotations(
         // It is intended that "changes-ignored" is also used if the ConfigMap is not in the store,
         // i.e. it doesn't exist (yet), e.g. because the StatefulSet was created before the
         // ConfigMap, or it has the label `restarter.stackable.tech/ignore=true` (filtered out by the
-        // watcher). Once the ConfigMap shows up, the value changes to its uid/content digest
-        // (unless ignored via the StatefulSet annotations), which restarts the Pods so that they
-        // pick it up.
+        // watcher). Once the ConfigMap shows up, the value changes to its tracking value (see
+        // `ChangeTrackingMechanism`, unless ignored via the StatefulSet annotations), which
+        // restarts the Pods so that they pick it up.
         // Leaving out the annotation instead would not avoid any restart, but cause additional
         // ones, e.g. when an object ignored via a StatefulSet annotation is created after the
         // StatefulSet.
-        let value = if let Some(cm) = cm
-            && let Some(uid) = &cm.uid
-            && !ignored_cms.contains(cm_name)
-        {
-            let digest = &cm.digest;
-            format!("{uid}/{digest}")
-        } else {
-            "changes-ignored".to_owned()
-        };
+        let value = match cm {
+            Some(cm) if !ignored_cms.contains(cm_name) => {
+                tracking_value(&ctx.client, &ctx.cm_digests, &cm, mechanism).await?
+            }
+            _ => None,
+        }
+        .unwrap_or_else(|| "changes-ignored".to_owned());
 
         annotations.insert(annotation_key(CONFIGMAP_ANNOTATION_PREFIX, cm_name)?, value);
     }
@@ -491,17 +458,17 @@ pub async fn get_updated_restarter_annotations(
             find_pod_refs(
                 pod_spec,
                 |volume| {
-                    Some(ObjectRef::<ContentDigest<Secret>>::new(
+                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
                         volume.secret.as_ref()?.secret_name.as_deref()?,
                     ))
                 },
                 |env_var| {
-                    Some(ObjectRef::<ContentDigest<Secret>>::new(
+                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
                         &env_var.value_from.as_ref()?.secret_key_ref.as_ref()?.name,
                     ))
                 },
                 |env_from| {
-                    Some(ObjectRef::<ContentDigest<Secret>>::new(
+                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
                         &env_from.secret_ref.as_ref()?.name,
                     ))
                 },
@@ -526,15 +493,13 @@ pub async fn get_updated_restarter_annotations(
         let secret = secrets.get(&secret_ref);
 
         // Same as for ConfigMaps above, "changes-ignored" is intended for Secrets not in the store.
-        let value = if let Some(secret) = secret
-            && let Some(uid) = &secret.uid
-            && !ignored_secrets.contains(secret_name)
-        {
-            let digest = &secret.digest;
-            format!("{uid}/{digest}")
-        } else {
-            "changes-ignored".to_owned()
-        };
+        let value = match secret {
+            Some(secret) if !ignored_secrets.contains(secret_name) => {
+                tracking_value(&ctx.client, &ctx.secret_digests, &secret, mechanism).await?
+            }
+            _ => None,
+        }
+        .unwrap_or_else(|| "changes-ignored".to_owned());
 
         annotations.insert(
             annotation_key(SECRET_ANNOTATION_PREFIX, secret_name)?,
@@ -597,6 +562,7 @@ fn error_policy(_obj: Arc<DeserializeGuard<StatefulSet>>, error: &Error, _ctx: A
     match error {
         // root object is invalid, will be requeued when modified anyway
         Error::InvalidStatefulSet { .. } => Action::await_change(),
+        Error::InvalidChangeTrackingMechanism { .. } => Action::await_change(),
 
         _ => Action::requeue(Duration::from_secs(5)),
     }
@@ -604,23 +570,7 @@ fn error_policy(_obj: Arc<DeserializeGuard<StatefulSet>>, error: &Error, _ctx: A
 
 #[cfg(test)]
 mod tests {
-    use stackable_operator::k8s_openapi::{
-        ByteString,
-        apimachinery::pkg::apis::meta::v1::{ManagedFieldsEntry, ObjectMeta},
-    };
-
     use super::*;
-
-    fn config_map(data: &[(&str, &str)]) -> ConfigMap {
-        ConfigMap {
-            data: Some(
-                data.iter()
-                    .map(|(key, value)| ((*key).to_owned(), (*value).to_owned()))
-                    .collect(),
-            ),
-            ..ConfigMap::default()
-        }
-    }
 
     #[test]
     fn test_annotation_names() {
@@ -647,132 +597,67 @@ mod tests {
         );
     }
 
-    #[test]
-    fn digest_is_stable_across_releases() {
-        // Changing the digest function rolls every StatefulSet labelled
-        // restarter.stackable.tech/enabled=true which we want to avoid
-        assert_eq!(
-            config_map_content_digest(&config_map(&[("foo", "bar")])),
-            "401bdc692ecd7b9bb6b02f186e2976c3"
-        );
-    }
-
-    #[test]
-    fn digest_ignores_metadata() {
-        let mut changed = config_map(&[("foo", "bar")]);
-        changed.metadata = ObjectMeta {
-            resource_version: Some("12345".to_owned()),
-            labels: Some([("cost-center".to_owned(), "irrelevant".to_owned())].into()),
-            annotations: Some([("probe".to_owned(), "1".to_owned())].into()),
-            managed_fields: Some(vec![ManagedFieldsEntry {
-                manager: Some("third-party-controller".to_owned()),
-                ..ManagedFieldsEntry::default()
-            }]),
-            ..ObjectMeta::default()
-        };
-
-        assert_eq!(
-            config_map_content_digest(&config_map(&[("foo", "bar")])),
-            config_map_content_digest(&changed)
-        );
-    }
-
-    #[test]
-    fn digest_changes_when_content_changes() {
-        assert_ne!(
-            config_map_content_digest(&config_map(&[("foo", "bar")])),
-            config_map_content_digest(&config_map(&[("foo", "baz")]))
-        );
-    }
-
-    #[test]
-    fn digest_distinguishes_ambiguous_entry_splits() {
-        // Without length prefixes these would hash identically.
-        assert_ne!(
-            config_map_content_digest(&config_map(&[("ab", "c")])),
-            config_map_content_digest(&config_map(&[("a", "bc")]))
-        );
-    }
-
-    #[test]
-    fn digest_distinguishes_data_from_binary_data() {
-        let binary = ConfigMap {
-            binary_data: Some([("foo".to_owned(), ByteString(b"bar".to_vec()))].into()),
-            ..ConfigMap::default()
-        };
-
-        assert_ne!(
-            config_map_content_digest(&config_map(&[("foo", "bar")])),
-            config_map_content_digest(&binary)
-        );
-    }
-
-    fn identifying_metadata() -> ObjectMeta {
-        ObjectMeta {
-            name: Some("my-config".to_owned()),
-            namespace: Some("my-namespace".to_owned()),
-            uid: Some("f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c".to_owned()),
-            managed_fields: Some(vec![ManagedFieldsEntry {
-                manager: Some("third-party-controller".to_owned()),
-                ..ManagedFieldsEntry::default()
-            }]),
-            annotations: Some(
-                [(
-                    "kubectl.kubernetes.io/last-applied-configuration".to_owned(),
-                    r#"{"data":{"password":"aHVudGVyMg=="}}"#.to_owned(),
-                )]
-                .into(),
-            ),
-            ..ObjectMeta::default()
+    fn statefulset_with_mechanism(mechanism: Option<&str>) -> StatefulSet {
+        StatefulSet {
+            metadata: ObjectMeta {
+                annotations: mechanism.map(|mechanism| {
+                    [(
+                        CHANGE_TRACKING_MECHANISM_ANNOTATION.to_owned(),
+                        mechanism.to_owned(),
+                    )]
+                    .into()
+                }),
+                ..ObjectMeta::default()
+            },
+            ..StatefulSet::default()
         }
     }
 
     #[test]
-    fn digesting_keeps_the_identity() {
-        let config_map = ConfigMap {
-            metadata: identifying_metadata(),
-            ..config_map(&[("foo", "bar")])
-        };
-        let digest = config_map_content_digest(&config_map);
-        let digested = digest_config_map(config_map);
+    fn change_tracking_mechanism_is_read_from_the_annotation() {
+        for (annotation, expected) in [
+            (None, Some(ChangeTrackingMechanism::ResourceVersion)),
+            (
+                Some("resource-version"),
+                Some(ChangeTrackingMechanism::ResourceVersion),
+            ),
+            (Some("data-hash"), Some(ChangeTrackingMechanism::DataHash)),
+            (Some("DataHash"), None),
+        ] {
+            let parsed =
+                ChangeTrackingMechanism::from_statefulset(&statefulset_with_mechanism(annotation));
 
-        assert_eq!(digested.digest, digest);
-        assert_eq!(digested.name.as_deref(), Some("my-config"));
-        assert_eq!(digested.namespace.as_deref(), Some("my-namespace"));
-        assert_eq!(
-            digested.uid.as_deref(),
-            Some("f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c")
-        );
+            match expected {
+                Some(expected) => {
+                    assert_eq!(
+                        parsed.expect("a missing or known mechanism must be accepted"),
+                        expected
+                    );
+                    if let Some(annotation) = annotation {
+                        assert_eq!(expected.to_string(), annotation);
+                    }
+                }
+                None => assert!(matches!(
+                    parsed,
+                    Err(Error::InvalidChangeTrackingMechanism { ref value, .. })
+                        if Some(value.as_str()) == annotation
+                )),
+            }
+        }
     }
 
     #[test]
-    fn digesting_a_secret_retains_no_content() {
-        let secret = Secret {
-            metadata: identifying_metadata(),
-            data: Some([("password".to_owned(), ByteString(b"hunter2".to_vec()))].into()),
-            ..Secret::default()
+    fn resource_version_value_matches_previous_releases() {
+        let metadata = ObjectMeta {
+            uid: Some("f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c".to_owned()),
+            resource_version: Some("12345".to_owned()),
+            ..ObjectMeta::default()
         };
-        let digest = secret_content_digest(&secret);
-        let digested = digest_secret(secret);
-
-        assert_eq!(digested.digest, digest);
-        assert_eq!(digested.name.as_deref(), Some("my-config"));
-
-        let debug = format!("{digested:?}");
-        assert!(!debug.contains("hunter2"), "{debug}");
-        assert!(!debug.contains("aHVudGVyMg=="), "{debug}");
-    }
-
-    #[test]
-    fn store_keys_match_the_refs_built_from_a_pod_template() {
-        let digested = digest_config_map(ConfigMap {
-            metadata: identifying_metadata(),
-            ..config_map(&[("foo", "bar")])
-        });
 
         assert_eq!(
-            ObjectRef::from_obj(&digested),
-            ObjectRef::<ContentDigest<ConfigMap>>::new("my-config").within("my-namespace")
+            resource_version_value(&metadata).as_deref(),
+            Some("f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c/12345")
         );
+        assert_eq!(resource_version_value(&ObjectMeta::default()), None);
     }
 }

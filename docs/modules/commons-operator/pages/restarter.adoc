@@ -61,13 +61,41 @@ spec:
 ...
 ----
 
+Annotation:: `restarter.stackable.tech/change-tracking-mechanism`
+
+This annotation selects what counts as a change of a referenced ConfigMap or Secret:
+
+`resource-version` (default):: Every write to the object counts as a change, including writes that only touch its metadata (labels, annotations, managed fields) or that write identical content.
+`data-hash`:: Only a change of the content (`data` and `binaryData` of a ConfigMap, `data` of a Secret) counts as a change.
+Writes by third parties that leave the content as it is do not restart the Pods.
+To hash the content, the operator reads a referenced object whenever its resource version changes.
+It only keeps the hash, not the content.
+Anyone who can read the StatefulSet or its Pods can use the hash to verify guesses of a Secret's content, so keep low-entropy Secrets such as user-chosen passwords on `resource-version`.
+
+With any other value, the operator logs an error and stops updating the Pod template annotations of the StatefulSet until the value is fixed.
+Switching between the mechanisms changes the values of the Pod template annotations described below and therefore rolling-restarts the StatefulSet once.
+
+[source,yaml]
+----
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: statefulset-with-content-based-restarts
+  labels:
+    restarter.stackable.tech/enabled: "true"
+  annotations:
+    restarter.stackable.tech/change-tracking-mechanism: data-hash
+...
+----
+
 ==== Pod template annotations
 
 To detect changes, the operator adds an annotation for every referenced ConfigMap and Secret to the Pod template of the StatefulSet.
-Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID and resource version of the referenced object.
+Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID of the referenced object, followed by its resource version or, with the `data-hash` mechanism, a hash of its content.
 The value is `changes-ignored` instead if the object is excluded, either by the StatefulSet annotations described above or by the `restarter.stackable.tech/ignore` label described below.
 The value is also `changes-ignored` if the referenced object does not exist (yet), for example because the StatefulSet was created before a mounted Secret.
-This is intended: once the object is created, the value changes to its UID and resource version (unless it is excluded), and the Pods are restarted to pick it up.
+This is intended: once the object is created, the value changes as described above (unless it is excluded), and the Pods are restarted to pick it up.
 Kubernetes rolling-restarts the Pods whenever one of these values changes.
 These annotations are managed by the operator, there is no need to set them yourself.
 

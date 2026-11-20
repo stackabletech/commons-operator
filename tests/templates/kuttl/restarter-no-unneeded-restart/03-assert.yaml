@@ -6,9 +6,8 @@ timeout: 300
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: test
+  name: data-hash
   generation: 1
 status:
   readyReplicas: 2
   replicas: 2
-  observedGeneration: 1
