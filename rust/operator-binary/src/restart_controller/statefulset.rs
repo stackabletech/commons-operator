@@ -10,6 +10,7 @@ use serde_json::json;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
+    constants::RESTART_CONTROLLER_ENABLED_LABEL,
     k8s_openapi::api::{
         apps::v1::StatefulSet,
         core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
@@ -190,7 +191,8 @@ pub async fn start<F>(
                     sts_store,
                     watcher(
                         stses,
-                        watcher::Config::default().labels("restarter.stackable.tech/enabled=true"),
+                        watcher::Config::default()
+                            .labels(&RESTART_CONTROLLER_ENABLED_LABEL.to_string()),
                     ),
                 )
                 .applied_objects(),
