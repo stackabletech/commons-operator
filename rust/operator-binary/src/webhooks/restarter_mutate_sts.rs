@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, ops::Not, sync::Arc};
 use json_patch::{AddOperation, Patch, PatchOperation, jsonptr::PointerBuf};
 use stackable_operator::{
     builder::meta::ObjectMetaBuilder,
+    constants::RESTART_CONTROLLER_ENABLED_LABEL,
     k8s_openapi::{
         api::{
             admissionregistration::v1::{
@@ -77,8 +78,8 @@ fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfigur
             // label set to `true`.
             object_selector: Some(LabelSelector {
                 match_labels: Some(BTreeMap::from([(
-                    "restarter.stackable.tech/enabled".to_owned(),
-                    "true".to_owned(),
+                    RESTART_CONTROLLER_ENABLED_LABEL.key().to_string(),
+                    RESTART_CONTROLLER_ENABLED_LABEL.value().to_string(),
                 )])),
                 match_expressions: None,
             }),
