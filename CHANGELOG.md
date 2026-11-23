@@ -15,7 +15,8 @@ All notable changes to this project will be documented in this file.
 - Add the StatefulSet annotation `restarter.stackable.tech/change-tracking-mechanism`. With the
   value `data-hash`, the restarter only restarts Pods when the content of a referenced ConfigMap
   or Secret changes, so content-identical writes by third parties no longer trigger a rolling
-  restart. The default `resource-version` keeps the previous behavior ([#449]).
+  restart. The default `resource-version` keeps the previous behavior. Switching from
+  `resource-version` to `data-hash` does not restart the Pods by itself ([#449]).
 
 ### Changed
 

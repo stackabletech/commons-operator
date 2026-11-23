@@ -75,7 +75,9 @@ On the first use of `data-hash`, the operator creates this key in the Secret `co
 Deleting that Secret, or the namespace, makes the operator create a new key on its next start, which changes every hash and therefore rolling-restarts every StatefulSet using `data-hash` once.
 
 With any other value, the operator logs an error and stops updating the Pod template annotations of the StatefulSet until the value is fixed.
-Switching between the mechanisms changes the values of the Pod template annotations described below and therefore rolling-restarts the StatefulSet once.
+Switching from `data-hash` to `resource-version` changes the values of the Pod template annotations described below and therefore rolling-restarts the StatefulSet once.
+Switching from `resource-version` to `data-hash` does not restart the Pods by itself: the operator keeps the value of every referenced object that has not been written since the Pods were last rolled.
+The next write to such an object restarts the Pods once, as it would have with `resource-version`, and from then on only content changes do.
 
 [source,yaml]
 ----
