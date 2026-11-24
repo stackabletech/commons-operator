@@ -7,14 +7,23 @@ metadata:
   {{- include "commons-operator.labels" . | nindent 4 }}
 rules:
   # Watch pods to detect expired restart annotations.
-  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
   - apiGroups:
       - ""
     resources:
       - pods
+    verbs:
+      - list
+      - watch
+  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
+  # Get them to digest their content for StatefulSets using the change tracking mechanism
+  # data-hash (annotation restarter.stackable.tech/change-tracking-mechanism).
+  - apiGroups:
+      - ""
+    resources:
       - configmaps
       - secrets
     verbs:
+      - get
       - list
       - watch
   # For automatic cluster domain detection.
@@ -73,3 +82,35 @@ rules:
       # Required for startup condition
       - list
       - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "commons-operator.fullname" . }}-role
+  labels:
+  {{- include "commons-operator.labels" . | nindent 4 }}
+rules:
+  # Create the Secret holding the key of the content digests on first use of the change tracking
+  # mechanism data-hash (annotation restarter.stackable.tech/change-tracking-mechanism).
+  # Reading it is covered by the ClusterRole above.
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "commons-operator.fullname" . }}-rolebinding
+  labels:
+  {{- include "commons-operator.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "commons-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "commons-operator.fullname" . }}-role
+  apiGroup: rbac.authorization.k8s.io

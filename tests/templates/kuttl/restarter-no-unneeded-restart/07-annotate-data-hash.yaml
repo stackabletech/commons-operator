@@ -1,0 +1,7 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl annotate statefulset switch --namespace $NAMESPACE restarter.stackable.tech/change-tracking-mechanism=data-hash
+  # Give the restarter time to react, otherwise the following assert passes right away.
+  - script: sleep 15

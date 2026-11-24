@@ -1,0 +1,41 @@
+---
+# With the data-hash change tracking mechanism, only content changes of the ConfigMap restart the
+# Pods, writes that only touch its metadata do not.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-hash-config
+data:
+  foo: bar
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: data-hash
+  labels:
+    restarter.stackable.tech/enabled: "true"
+  annotations:
+    restarter.stackable.tech/change-tracking-mechanism: data-hash
+spec:
+  selector:
+    matchLabels:
+      app: data-hash
+  serviceName: data-hash
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: data-hash
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:1.27
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: data-hash-config
