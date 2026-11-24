@@ -1,8 +1,8 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     fmt::Debug,
     future::Future,
-    sync::Arc,
+    sync::{Arc, Mutex, PoisonError},
     time::Duration,
 };
 
@@ -94,6 +94,10 @@ pub struct Ctx {
     cm_digests: DigestCache<ConfigMap>,
     secret_digests: DigestCache<Secret>,
     digest_key: DigestKeyStore,
+
+    /// Namespace and name of the StatefulSets already warned about the deprecation of
+    /// [`ChangeTrackingMechanism::ResourceVersion`], see [`warn_deprecated_mechanism`].
+    deprecation_warned: Mutex<HashSet<(String, String)>>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -178,6 +182,7 @@ pub fn create_context(
         cm_digests: DigestCache::default(),
         secret_digests: DigestCache::default(),
         digest_key: DigestKeyStore::new(client, operator_namespace),
+        deprecation_warned: Mutex::default(),
     });
 
     (ctx, cm_store_tx, secret_store_tx)
@@ -413,6 +418,29 @@ where
     }
 }
 
+/// Logs the deprecation of [`ChangeTrackingMechanism::ResourceVersion`] for the StatefulSet
+/// `name` in `namespace`, once per StatefulSet and operator run.
+///
+/// Every write to a watched ConfigMap or Secret reconciles every StatefulSet (see [`trigger_all`]),
+/// so warning on every call would repeat the warning for each such write. Keyed by name instead of
+/// uid, because the webhook sees StatefulSets on creation before they have a uid.
+fn warn_deprecated_mechanism(ctx: &Ctx, namespace: &str, name: String) {
+    let first_warning = ctx
+        .deprecation_warned
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert((namespace.to_owned(), name.clone()));
+    if first_warning {
+        tracing::warn!(
+            k8s.object.namespace = namespace,
+            k8s.object.name = name,
+            "The change tracking mechanism \"resource-version\" is deprecated and will be removed \
+             in the next release, which will use \"data-hash\" for every StatefulSet and ignore \
+             the value of the annotation {CHANGE_TRACKING_MECHANISM_ANNOTATION:?}"
+        );
+    }
+}
+
 pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
@@ -421,6 +449,13 @@ pub async fn get_updated_restarter_annotations(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
     let mechanism = ChangeTrackingMechanism::from_statefulset(sts)?;
+    if mechanism == ChangeTrackingMechanism::ResourceVersion
+        && sts
+            .annotations()
+            .contains_key(CHANGE_TRACKING_MECHANISM_ANNOTATION)
+    {
+        warn_deprecated_mechanism(&ctx, ns, sts.name_any());
+    }
     let previous_annotations = sts
         .spec
         .as_ref()

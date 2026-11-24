@@ -65,7 +65,8 @@ Annotation:: `restarter.stackable.tech/change-tracking-mechanism`
 
 This annotation selects what counts as a change of a referenced ConfigMap or Secret:
 
-`resource-version` (default):: Every write to the object counts as a change, including writes that only touch its metadata (labels, annotations, managed fields) or that write identical content.
+`resource-version` (default, deprecated):: Every write to the object counts as a change, including writes that only touch its metadata (labels, annotations, managed fields) or that write identical content.
+This mechanism is deprecated and will be removed in the next release, see <<change-tracking-deprecation>>.
 `data-hash`:: Only a change of the content (`data` and `binaryData` of a ConfigMap, `data` of a Secret) counts as a change.
 Writes by third parties that leave the content as it is do not restart the Pods.
 To hash the content, the operator reads a referenced object whenever its resource version changes.
@@ -92,6 +93,18 @@ metadata:
     restarter.stackable.tech/change-tracking-mechanism: data-hash
 ...
 ----
+
+[#change-tracking-deprecation]
+==== Deprecation of `resource-version`
+
+The next release removes the `resource-version` mechanism and uses `data-hash` for every StatefulSet.
+It ignores the value of the annotation `restarter.stackable.tech/change-tracking-mechanism`, and logs a warning if it is `resource-version`.
+The operator already logs this warning in this release, once per StatefulSet after each operator start.
+
+The switch works as described above and does not restart any Pods by itself.
+To try `data-hash` before that, set the annotation on individual StatefulSets.
+
+If you rely on writes to a ConfigMap or Secret restarting the Pods, for example by changing a label or annotation of it, use `kubectl rollout restart statefulset \{name\}` instead.
 
 ==== Pod template annotations
 

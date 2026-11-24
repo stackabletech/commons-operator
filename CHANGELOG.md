@@ -18,6 +18,13 @@ All notable changes to this project will be documented in this file.
   restart. The default `resource-version` keeps the previous behavior. Switching from
   `resource-version` to `data-hash` does not restart the Pods by itself ([#449]).
 
+### Deprecated
+
+- The restarter change tracking mechanism `resource-version`. The next release uses `data-hash` for
+  every StatefulSet and ignores the annotation `restarter.stackable.tech/change-tracking-mechanism`.
+  Writes to a referenced ConfigMap or Secret that leave its content as it is will then no longer
+  restart the Pods ([#449]).
+
 ### Changed
 
 - Bump stackable-operator to 0.116.0 ([#439], [#443], [#444]).
