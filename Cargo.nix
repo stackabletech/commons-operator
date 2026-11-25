@@ -3002,9 +3002,9 @@ rec {
       };
       "form_urlencoded" = rec {
         crateName = "form_urlencoded";
-        version = "1.2.2";
+        version = "1.2.3";
         edition = "2018";
-        sha256 = "1kqzb2qn608rxl3dws04zahcklpplkd5r1vpabwga5l50d2v4k6b";
+        sha256 = "0vph40jb1qvkvl52aigslr0hvbg1dhiwdwaxg48i5yxgkqcqk95g";
         license = "MIT OR Apache-2.0";
         authors = [
           "The rust-url developers"
@@ -3612,10 +3612,10 @@ rec {
       };
       "granit-parser" = rec {
         crateName = "granit-parser";
-        version = "2.1.0";
+        version = "2.2.0";
         edition = "2021";
         crateBin = [];
-        sha256 = "1pq1ljzfc7n0sfx0f6la8f5p4lmj81n841rj293kvpylsj35bw05";
+        sha256 = "1j1d897qqxarylh7rjrq37469aaax9x33ljqnhbb8ybhkh6lvl4v";
         libName = "granit_parser";
         license = "MIT OR Apache-2.0";
         authors = [
@@ -4181,11 +4181,6 @@ rec {
             usesDefaultFeatures = false;
           }
           {
-            name = "rustls-native-certs";
-            packageId = "rustls-native-certs";
-            optional = true;
-          }
-          {
             name = "tokio";
             packageId = "tokio";
           }
@@ -4234,7 +4229,7 @@ rec {
           "webpki-roots" = [ "dep:webpki-roots" ];
           "webpki-tokio" = [ "webpki-roots" ];
         };
-        resolvedDefaultFeatures = [ "http1" "log" "logging" "native-tokio" "ring" "rustls-native-certs" "tls12" ];
+        resolvedDefaultFeatures = [ "http1" "log" "logging" "ring" "tls12" ];
       };
       "hyper-timeout" = rec {
         crateName = "hyper-timeout";
@@ -5678,9 +5673,9 @@ rec {
       };
       "kube" = rec {
         crateName = "kube";
-        version = "5.0.0";
+        version = "5.2.0";
         edition = "2024";
-        sha256 = "08fh07izsyfmfqf4d71p24awpnmfvhjbsjc99wx644clahphhfy7";
+        sha256 = "0ly8n6gkyry4mn0rkpqnjqn87nw48l45wbmyrwrfz2w70y8ilppr";
         license = "Apache-2.0";
         authors = [
           "clux <sszynrae@gmail.com>"
@@ -5755,9 +5750,9 @@ rec {
       };
       "kube-client" = rec {
         crateName = "kube-client";
-        version = "5.0.0";
+        version = "5.2.0";
         edition = "2024";
-        sha256 = "02s36llknzls076dhj3p3m8pf4a1dmhgqnqi3cgxp454phiv4mmf";
+        sha256 = "0rxs77kwlb2qphpvn6d3alngrdkaq2ajhjc3gri02rf8fxsf2gkh";
         libName = "kube_client";
         license = "Apache-2.0";
         authors = [
@@ -5813,7 +5808,7 @@ rec {
             packageId = "hyper-rustls";
             optional = true;
             usesDefaultFeatures = false;
-            features = [ "http1" "logging" "native-tokio" "tls12" ];
+            features = [ "http1" "logging" "tls12" ];
           }
           {
             name = "hyper-timeout";
@@ -5893,7 +5888,7 @@ rec {
             name = "tokio";
             packageId = "tokio";
             optional = true;
-            features = [ "time" "signal" "sync" "rt" ];
+            features = [ "time" "sync" "rt" ];
           }
           {
             name = "tokio-util";
@@ -5970,8 +5965,8 @@ rec {
           "jsonpatch" = [ "kube-core/jsonpatch" ];
           "jsonpath-rust" = [ "dep:jsonpath-rust" ];
           "kubelet-debug" = [ "ws" "kube-core/kubelet-debug" ];
-          "oauth" = [ "client" "tame-oauth" ];
-          "oidc" = [ "client" "form_urlencoded" ];
+          "oauth" = [ "client" "hyper-rustls?/native-tokio" "tame-oauth" ];
+          "oidc" = [ "client" "form_urlencoded" "hyper-rustls?/native-tokio" ];
           "openssl" = [ "dep:openssl" ];
           "openssl-tls" = [ "openssl" "hyper-openssl" ];
           "pem" = [ "dep:pem" ];
@@ -5995,9 +5990,9 @@ rec {
       };
       "kube-core" = rec {
         crateName = "kube-core";
-        version = "5.0.0";
+        version = "5.2.0";
         edition = "2024";
-        sha256 = "1f9zszr84ljjgr41bzcsjzq4g2vwniafynchxyh5p8qszi3lps3d";
+        sha256 = "1z2gyfz60ks46mrxa679p5g34lmlicb5xi0smh342brvafmaksdm";
         libName = "kube_core";
         license = "Apache-2.0";
         authors = [
@@ -6079,9 +6074,9 @@ rec {
       };
       "kube-derive" = rec {
         crateName = "kube-derive";
-        version = "5.0.0";
+        version = "5.2.0";
         edition = "2024";
-        sha256 = "0kp63147ahqkv6inrj341q08i4mvw7h16z17q0d4jwa3qdmb87yy";
+        sha256 = "0vjdgywpxyf758b04swrw9kcw4qf0xgd7sld153acmvppqfrkp6f";
         procMacro = true;
         libName = "kube_derive";
         license = "Apache-2.0";
@@ -6129,9 +6124,9 @@ rec {
       };
       "kube-runtime" = rec {
         crateName = "kube-runtime";
-        version = "5.0.0";
+        version = "5.2.0";
         edition = "2024";
-        sha256 = "14j393x46py5ffmqhfbb9ykar7lvlad209n434cfrdi4a0061slx";
+        sha256 = "0dx6z0d71ycyvgj7vj6y50lr81ahi9p9ashy71gbfkk7nkpdjy6a";
         libName = "kube_runtime";
         license = "Apache-2.0";
         authors = [
@@ -6175,6 +6170,7 @@ rec {
           {
             name = "hostname";
             packageId = "hostname";
+            target = { target, features }: ((target."unix" or false) || (target."windows" or false));
           }
           {
             name = "json-patch";
@@ -6193,7 +6189,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot";
+            packageId = "parking_lot 0.13.0";
           }
           {
             name = "pin-project";
@@ -6215,6 +6211,12 @@ rec {
             name = "tokio";
             packageId = "tokio";
             features = [ "time" ];
+          }
+          {
+            name = "tokio";
+            packageId = "tokio";
+            target = { target, features }: (((target."unix" or false) || (target."windows" or false)) && (!("emscripten" == target."os" or null)));
+            features = [ "signal" ];
           }
           {
             name = "tokio-util";
@@ -6336,10 +6338,10 @@ rec {
       };
       "libz-sys" = rec {
         crateName = "libz-sys";
-        version = "1.1.31";
+        version = "1.1.33";
         edition = "2018";
         links = "z";
-        sha256 = "1cjw8nisxy5iv8yms7dsxwhclb26djl38n6xq4nmlqxxra73087z";
+        sha256 = "0ic0jc13vgz6fwcm12p7ss5bvl09mbkl52c2ip3v1ni18fgzbqzy";
         libName = "libz_sys";
         license = "MIT OR Apache-2.0";
         authors = [
@@ -6394,11 +6396,34 @@ rec {
           "yoke" = [ "dep:yoke" ];
         };
       };
-      "lock_api" = rec {
+      "lock_api 0.4.14" = rec {
         crateName = "lock_api";
         version = "0.4.14";
         edition = "2021";
         sha256 = "0rg9mhx7vdpajfxvdjmgmlyrn20ligzqvn8ifmaz7dc79gkrjhr2";
+        license = "MIT OR Apache-2.0";
+        authors = [
+          "Amanieu d'Antras <amanieu@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "scopeguard";
+            packageId = "scopeguard";
+            usesDefaultFeatures = false;
+          }
+        ];
+        features = {
+          "default" = [ "atomic_usize" ];
+          "owning_ref" = [ "dep:owning_ref" ];
+          "serde" = [ "dep:serde" ];
+        };
+        resolvedDefaultFeatures = [ "atomic_usize" "default" ];
+      };
+      "lock_api 0.5.0" = rec {
+        crateName = "lock_api";
+        version = "0.5.0";
+        edition = "2024";
+        sha256 = "1bsr9bn8b8fh1nq077l4yris6lizar4q7v6nykf175hpv8i1pnb5";
         license = "MIT OR Apache-2.0";
         authors = [
           "Amanieu d'Antras <amanieu@gmail.com>"
@@ -7341,7 +7366,7 @@ rec {
           "loom" = [ "dep:loom" ];
         };
       };
-      "parking_lot" = rec {
+      "parking_lot 0.12.5" = rec {
         crateName = "parking_lot";
         version = "0.12.5";
         edition = "2021";
@@ -7353,11 +7378,11 @@ rec {
         dependencies = [
           {
             name = "lock_api";
-            packageId = "lock_api";
+            packageId = "lock_api 0.4.14";
           }
           {
             name = "parking_lot_core";
-            packageId = "parking_lot_core";
+            packageId = "parking_lot_core 0.9.12";
           }
         ];
         features = {
@@ -7369,7 +7394,76 @@ rec {
         };
         resolvedDefaultFeatures = [ "default" ];
       };
-      "parking_lot_core" = rec {
+      "parking_lot 0.13.0" = rec {
+        crateName = "parking_lot";
+        version = "0.13.0";
+        edition = "2024";
+        sha256 = "09njdx4da5163x3h43x0qpkrmhrg89ir0mc4hxbvgl71liy97kx9";
+        license = "MIT OR Apache-2.0";
+        authors = [
+          "Amanieu d'Antras <amanieu@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "lock_api";
+            packageId = "lock_api 0.5.0";
+          }
+          {
+            name = "parking_lot_core";
+            packageId = "parking_lot_core 0.10.0";
+          }
+        ];
+        features = {
+          "arc_lock" = [ "lock_api/arc_lock" ];
+          "deadlock_detection" = [ "parking_lot_core/deadlock_detection" ];
+          "nightly" = [ "parking_lot_core/nightly" ];
+          "owning_ref" = [ "lock_api/owning_ref" ];
+          "serde" = [ "lock_api/serde" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
+      "parking_lot_core 0.10.0" = rec {
+        crateName = "parking_lot_core";
+        version = "0.10.0";
+        edition = "2024";
+        sha256 = "09lqs4hjq55zz70gbiszx2wpz366h2pzq42hh6kqmhcc0rhg1zww";
+        license = "MIT OR Apache-2.0";
+        authors = [
+          "Amanieu d'Antras <amanieu@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "libc";
+            packageId = "libc";
+            target = { target, features }: (((target."unix" or false) && (!("aix" == target."os" or null))) || ("wasi" == target."os" or null));
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+            target = { target, features }: ("aix" == target."os" or null);
+          }
+          {
+            name = "redox_syscall";
+            packageId = "redox_syscall 0.9.5";
+            target = { target, features }: ("redox" == target."os" or null);
+          }
+          {
+            name = "smallvec";
+            packageId = "smallvec";
+          }
+          {
+            name = "windows-link";
+            packageId = "windows-link";
+            target = { target, features }: (target."windows" or false);
+          }
+        ];
+        features = {
+          "backtrace" = [ "dep:backtrace" ];
+          "deadlock_detection" = [ "petgraph" "backtrace" ];
+          "petgraph" = [ "dep:petgraph" ];
+        };
+      };
+      "parking_lot_core 0.9.12" = rec {
         crateName = "parking_lot_core";
         version = "0.9.12";
         edition = "2021";
@@ -7390,7 +7484,7 @@ rec {
           }
           {
             name = "redox_syscall";
-            packageId = "redox_syscall";
+            packageId = "redox_syscall 0.5.18";
             target = { target, features }: ("redox" == target."os" or null);
           }
           {
@@ -8337,11 +8431,34 @@ rec {
         };
         resolvedDefaultFeatures = [ "os_rng" "std" ];
       };
-      "redox_syscall" = rec {
+      "redox_syscall 0.5.18" = rec {
         crateName = "redox_syscall";
         version = "0.5.18";
         edition = "2021";
         sha256 = "0b9n38zsxylql36vybw18if68yc9jczxmbyzdwyhb9sifmag4azd";
+        libName = "syscall";
+        license = "MIT";
+        authors = [
+          "Jeremy Soller <jackpot51@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "bitflags";
+            packageId = "bitflags 2.13.2";
+          }
+        ];
+        features = {
+          "core" = [ "dep:core" ];
+          "default" = [ "userspace" ];
+          "rustc-dep-of-std" = [ "core" "bitflags/rustc-dep-of-std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "userspace" ];
+      };
+      "redox_syscall 0.9.5" = rec {
+        crateName = "redox_syscall";
+        version = "0.9.5";
+        edition = "2021";
+        sha256 = "1zb8g34sfgrbvja7lgay2isggkj461qf86mdchawn7ml8mc8f32q";
         libName = "syscall";
         license = "MIT";
         authors = [
@@ -9678,10 +9795,10 @@ rec {
       };
       "serde-saphyr" = rec {
         crateName = "serde-saphyr";
-        version = "2.1.0";
+        version = "2.2.0";
         edition = "2024";
         crateBin = [];
-        sha256 = "1diixjn80w882xrgqqqci3rdifj4f0nn0yg9lqbj8qy59xqw4k9z";
+        sha256 = "1n87f1lfymy00y0fnr4kjq9xn1pqp2zsv6szigsvnk9l941xx74n";
         libName = "serde_saphyr";
         license = "MIT OR Apache-2.0";
         dependencies = [
@@ -9692,7 +9809,7 @@ rec {
           }
           {
             name = "base64";
-            packageId = "base64 0.23.1";
+            packageId = "base64 0.22.1";
             optional = true;
           }
           {
@@ -12017,7 +12134,7 @@ rec {
           }
           {
             name = "parking_lot";
-            packageId = "parking_lot";
+            packageId = "parking_lot 0.12.5";
             optional = true;
           }
           {
@@ -13372,9 +13489,9 @@ rec {
       };
       "url" = rec {
         crateName = "url";
-        version = "2.5.8";
+        version = "2.5.9";
         edition = "2018";
-        sha256 = "1v8f7nx3hpr1qh76if0a04sj08k86amsq4h8cvpw6wvk76jahrzz";
+        sha256 = "06ivkcv3ljdrp34vlr8n2byyzk7m43q4r3g8ggqhwb5lgd0d437h";
         license = "MIT OR Apache-2.0";
         authors = [
           "The rust-url developers"
