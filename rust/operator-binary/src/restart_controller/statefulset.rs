@@ -1,19 +1,25 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
     future::Future,
     sync::Arc,
     time::Duration,
 };
 
 use futures::{Stream, StreamExt, TryStream, stream};
+use serde::de::DeserializeOwned;
 use serde_json::json;
 use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
-    k8s_openapi::api::{
-        apps::v1::StatefulSet,
-        core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+    k8s_openapi::{
+        NamespaceResourceScope,
+        api::{
+            apps::v1::StatefulSet,
+            core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+        },
+        apimachinery::pkg::apis::meta::v1::ObjectMeta,
     },
     kube::{
         self, Resource, ResourceExt,
@@ -33,7 +39,13 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::utils::delayed_init::{DelayedInit, InitDropped, Initializer};
+use crate::{
+    restart_controller::{
+        content_digest::{ContentDigest, DigestCache},
+        digest_key::{self, DigestKeyStore},
+    },
+    utils::delayed_init::{DelayedInit, InitDropped, Initializer},
+};
 
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
 
@@ -47,6 +59,9 @@ pub struct Ctx {
     client: Client,
     cms: DelayedInit<Store<PartialObjectMeta<ConfigMap>>>,
     secrets: DelayedInit<Store<PartialObjectMeta<Secret>>>,
+    cm_digests: DigestCache<ConfigMap>,
+    secret_digests: DigestCache<Secret>,
+    digest_key: DigestKeyStore,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -75,6 +90,15 @@ pub enum Error {
         source: KeyError,
         object_name: String,
     },
+
+    #[snafu(display("failed to fetch {obj_ref} to digest its content"))]
+    FetchContentFailed {
+        source: stackable_operator::client::Error,
+        obj_ref: Box<ObjectRef<DynamicObject>>,
+    },
+
+    #[snafu(display("failed to load the key for content digests"))]
+    LoadDigestKey { source: digest_key::Error },
 }
 
 impl ReconcilerError for Error {
@@ -89,6 +113,8 @@ impl ReconcilerError for Error {
             Error::ConfigMapsUninitialized { .. } => None,
             Error::SecretsUninitialized { .. } => None,
             Error::InvalidAnnotationKey { .. } => None,
+            Error::FetchContentFailed { obj_ref, .. } => Some(*obj_ref.clone()),
+            Error::LoadDigestKey { .. } => None,
         }
     }
 }
@@ -96,6 +122,7 @@ impl ReconcilerError for Error {
 #[allow(clippy::type_complexity)]
 pub fn create_context(
     client: Client,
+    operator_namespace: String,
 ) -> (
     Arc<Ctx>,
     Initializer<Store<PartialObjectMeta<ConfigMap>>>,
@@ -104,9 +131,12 @@ pub fn create_context(
     let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
     let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
     let ctx = Arc::new(Ctx {
-        client,
+        client: client.clone(),
         cms: cm_store_delayed,
         secrets: secret_store_delayed,
+        cm_digests: DigestCache::default(),
+        secret_digests: DigestCache::default(),
+        digest_key: DigestKeyStore::new(client, operator_namespace),
     });
 
     (ctx, cm_store_tx, secret_store_tx)
@@ -276,6 +306,77 @@ fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
     Ok(key.to_string())
 }
 
+/// Returns `previous_value` if it is the `uid/resourceVersion` value that releases before content
+/// digests wrote for the object with the given `metadata`, i.e. the object has not been written
+/// since the Pods were last rolled with that value.
+///
+/// Keeping this value lets the operator upgrade from those releases without restarting any Pods.
+/// The Pods are restarted on the next write to the object instead, as they would have been by
+/// those releases, and from then on the annotation holds the content digest. Objects that are
+/// never written keep the value indefinitely, so this has no planned removal: removing it would
+/// cost exactly the restart it avoids.
+///
+/// A digest never matches, as it is 32 hexadecimal characters, while resourceVersions written by
+/// etcd are decimal numbers of at most 19 digits.
+fn unchanged_resource_version_value(
+    metadata: &ObjectMeta,
+    previous_value: Option<&str>,
+) -> Option<String> {
+    let value = format!(
+        "{}/{}",
+        metadata.uid.as_deref()?,
+        metadata.resource_version.as_deref()?
+    );
+    (Some(value.as_str()) == previous_value).then_some(value)
+}
+
+/// Value of the Pod template annotation tracking `object`.
+///
+/// `previous_value` is the value the Pod template annotation currently has, if any. This fetches
+/// the object to digest its content, unless `digests` already holds the digest for its current
+/// resourceVersion, or `previous_value` is still up to date, see
+/// [`unchanged_resource_version_value`].
+///
+/// The value is `changes-ignored` if the object is `ignored` via the StatefulSet annotations, or
+/// missing from the store (`None`) or the API, i.e. it doesn't exist (yet), e.g. because the
+/// StatefulSet was created before it, or it has the label `restarter.stackable.tech/ignore=true`
+/// (filtered out by the watcher). This is intended: once the object shows up, the value changes
+/// to its digest (unless ignored via the StatefulSet annotations), which restarts the Pods so that
+/// they pick it up. Leaving out the annotation instead would not avoid any restart, but cause
+/// additional ones, e.g. when an object ignored via a StatefulSet annotation is created after the
+/// StatefulSet.
+async fn tracking_value<K>(
+    ctx: &Ctx,
+    digests: &DigestCache<K>,
+    object: Option<&PartialObjectMeta<K>>,
+    ignored: bool,
+    previous_value: Option<&str>,
+) -> Result<String, Error>
+where
+    K: ContentDigest + Resource<Scope = NamespaceResourceScope> + Clone + Debug + DeserializeOwned,
+{
+    let changes_ignored = || "changes-ignored".to_owned();
+    let Some(object) = object.filter(|_| !ignored) else {
+        return Ok(changes_ignored());
+    };
+    let metadata = &object.metadata;
+    if let Some(value) = unchanged_resource_version_value(metadata, previous_value) {
+        return Ok(value);
+    }
+    let digest_key = ctx.digest_key.get().await.context(LoadDigestKeySnafu)?;
+    let cached = digests
+        .get_or_fetch(metadata, digest_key, |name, namespace| {
+            ctx.client.get_opt::<K>(name, namespace)
+        })
+        .await
+        .with_context(|_| FetchContentFailedSnafu {
+            obj_ref: ObjectRef::from_obj(object).erase(),
+        })?;
+    Ok(cached.map_or_else(changes_ignored, |cached| {
+        format!("{}/{}", cached.uid, cached.digest)
+    }))
+}
+
 pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
@@ -283,6 +384,11 @@ pub async fn get_updated_restarter_annotations(
     let ns = sts.metadata.namespace.as_deref().expect(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
+    let previous_annotations = sts
+        .spec
+        .as_ref()
+        .and_then(|sts_spec| sts_spec.template.metadata.as_ref())
+        .and_then(|metadata| metadata.annotations.as_ref());
 
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
@@ -330,29 +436,16 @@ pub async fn get_updated_restarter_annotations(
         })
         .collect::<BTreeSet<_>>();
     for cm_ref in cm_refs {
-        let cm_name = &cm_ref.name;
-        let cm = cms.get(&cm_ref);
-
-        // It is intended that "changes-ignored" is also used if the ConfigMap is not in the store,
-        // i.e. it doesn't exist (yet), e.g. because the StatefulSet was created before the
-        // ConfigMap, or it has the label `restarter.stackable.tech/ignore=true` (filtered out by the
-        // watcher). Once the ConfigMap shows up, the value changes to its uid/resourceVersion
-        // (unless ignored via the StatefulSet annotations), which restarts the Pods so that they
-        // pick it up.
-        // Leaving out the annotation instead would not avoid any restart, but cause additional
-        // ones, e.g. when an object ignored via a StatefulSet annotation is created after the
-        // StatefulSet.
-        let value = if let Some(cm) = cm
-            && let Some(uid) = &cm.metadata.uid
-            && let Some(resource_version) = &cm.metadata.resource_version
-            && !ignored_cms.contains(cm_name)
-        {
-            format!("{uid}/{resource_version}",)
-        } else {
-            "changes-ignored".to_owned()
-        };
-
-        annotations.insert(annotation_key(CONFIGMAP_ANNOTATION_PREFIX, cm_name)?, value);
+        let key = annotation_key(CONFIGMAP_ANNOTATION_PREFIX, &cm_ref.name)?;
+        let value = tracking_value(
+            &ctx,
+            &ctx.cm_digests,
+            cms.get(&cm_ref).as_deref(),
+            ignored_cms.contains(&cm_ref.name),
+            previous_annotations.and_then(|previous| previous.get(&key).map(String::as_str)),
+        )
+        .await?;
+        annotations.insert(key, value);
     }
 
     let secret_refs = pod_specs
@@ -391,24 +484,16 @@ pub async fn get_updated_restarter_annotations(
         .map(|x| x.1)
         .collect::<BTreeSet<_>>();
     for secret_ref in secret_refs {
-        let secret_name = &secret_ref.name;
-        let secret = secrets.get(&secret_ref);
-
-        // Same as for ConfigMaps above, "changes-ignored" is intended for Secrets not in the store.
-        let value = if let Some(secret) = secret
-            && let Some(uid) = &secret.metadata.uid
-            && let Some(resource_version) = &secret.metadata.resource_version
-            && !ignored_secrets.contains(secret_name)
-        {
-            format!("{uid}/{resource_version}",)
-        } else {
-            "changes-ignored".to_owned()
-        };
-
-        annotations.insert(
-            annotation_key(SECRET_ANNOTATION_PREFIX, secret_name)?,
-            value,
-        );
+        let key = annotation_key(SECRET_ANNOTATION_PREFIX, &secret_ref.name)?;
+        let value = tracking_value(
+            &ctx,
+            &ctx.secret_digests,
+            secrets.get(&secret_ref).as_deref(),
+            ignored_secrets.contains(&secret_ref.name),
+            previous_annotations.and_then(|previous| previous.get(&key).map(String::as_str)),
+        )
+        .await?;
+        annotations.insert(key, value);
     }
 
     Ok(annotations)
@@ -497,6 +582,42 @@ mod tests {
             )
             .expect("annotation key for an overly long Secret name must be shortened and valid"),
             "secret.restarter.stackable.tech/hiverest-owner-user.stackable-postgres-cluster.credent-8221aa71"
+        );
+    }
+
+    #[test]
+    fn resource_version_value_is_kept_until_the_object_is_written() {
+        let uid = "f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c";
+        let metadata = ObjectMeta {
+            uid: Some(uid.to_owned()),
+            resource_version: Some("12345".to_owned()),
+            ..ObjectMeta::default()
+        };
+
+        for (previous_value, expected) in [
+            (Some(format!("{uid}/12345")), Some(format!("{uid}/12345"))),
+            (Some(format!("{uid}/12344")), None),
+            (
+                Some("0a1b2c3d-0000-0000-0000-000000000000/12345".to_owned()),
+                None,
+            ),
+            (
+                Some(format!("{uid}/0123456789abcdef0123456789abcdef")),
+                None,
+            ),
+            (Some("changes-ignored".to_owned()), None),
+            (None, None),
+        ] {
+            assert_eq!(
+                unchanged_resource_version_value(&metadata, previous_value.as_deref()),
+                expected,
+                "previous value {previous_value:?}"
+            );
+        }
+
+        assert_eq!(
+            unchanged_resource_version_value(&ObjectMeta::default(), Some(&format!("{uid}/12345"))),
+            None
         );
     }
 }

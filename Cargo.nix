@@ -10617,12 +10617,20 @@ rec {
             features = [ "compat" ];
           }
           {
+            name = "hmac";
+            packageId = "hmac";
+          }
+          {
             name = "http";
             packageId = "http";
           }
           {
             name = "json-patch";
             packageId = "json-patch";
+          }
+          {
+            name = "rand";
+            packageId = "rand 0.10.3";
           }
           {
             name = "serde";
@@ -10632,6 +10640,10 @@ rec {
           {
             name = "serde_json";
             packageId = "serde_json";
+          }
+          {
+            name = "sha2";
+            packageId = "sha2";
           }
           {
             name = "snafu";

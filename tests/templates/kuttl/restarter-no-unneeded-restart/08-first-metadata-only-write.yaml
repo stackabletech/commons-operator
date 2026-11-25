@@ -1,0 +1,8 @@
+---
+# The first write after the upgrade restarts the Pods once, as it would have before, because the
+# operator does not know the content the previous annotation value stood for. From then on, the
+# annotation holds the content digest.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl label configmap upgrade-config --namespace $NAMESPACE third-party=first

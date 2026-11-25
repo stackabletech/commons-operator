@@ -1,0 +1,39 @@
+---
+# Only content changes of the ConfigMap restart the Pods, writes that only touch its metadata do
+# not.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: content-config
+data:
+  foo: bar
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: content
+  labels:
+    restarter.stackable.tech/enabled: "true"
+spec:
+  selector:
+    matchLabels:
+      app: content
+  serviceName: content
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: content
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:1.27
+          volumeMounts:
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: config
+          configMap:
+            name: content-config
