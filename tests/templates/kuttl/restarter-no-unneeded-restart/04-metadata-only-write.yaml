@@ -1,0 +1,6 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: kubectl label configmap content-config --namespace $NAMESPACE third-party=true
+  - script: sleep 15

@@ -1,0 +1,21 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 300
+commands:
+  - script: |
+      sleep 15
+      LEGACY_VALUE="$(kubectl get configmap upgrade-config --namespace "$NAMESPACE" \
+        --output 'jsonpath={.metadata.uid}/{.metadata.resourceVersion}')"
+      ACTUAL_VALUE="$(kubectl get statefulset upgrade --namespace "$NAMESPACE" \
+        --output 'jsonpath={.spec.template.metadata.annotations.configmap\.restarter\.stackable\.tech/upgrade-config}')"
+      test "$LEGACY_VALUE" = "$ACTUAL_VALUE"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: upgrade
+  generation: 1
+status:
+  readyReplicas: 2
+  replicas: 2

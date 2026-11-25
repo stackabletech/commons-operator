@@ -61,13 +61,30 @@ spec:
 ...
 ----
 
+==== What counts as a change
+
+Only a change of the content (`data` and `binaryData` of a ConfigMap, `data` of a Secret) counts as a change.
+Writes that leave the content as it is, for example writes by third parties that only touch the labels, annotations or managed fields of the object, do not restart the Pods.
+If you want to restart the Pods without changing any content, use `kubectl rollout restart statefulset \{name\}`.
+
+To hash the content, the operator watches ConfigMaps and Secrets including their content.
+It only keeps the hash, not the content.
+Of the metadata, it only keeps the name, namespace, UID and resource version, as other metadata can hold the content too, for example the `kubectl.kubernetes.io/last-applied-configuration` annotation of objects created with `kubectl apply`.
+The hash is keyed with a random key stored in a Secret in the operator namespace and bound to the UID of the object, so the hash in the Pod template annotations reveals nothing about the content beyond whether it equals an earlier content of the same object.
+The operator creates this key in the Secret `commons-operator-restarter-digest-key` in its own namespace on its first start, and does not start if it cannot load or create it.
+Deleting that Secret, or the namespace, makes the operator create a new key on its next start, which changes every hash and therefore rolling-restarts every StatefulSet managed by the restarter once.
+
+Earlier releases counted every write to a referenced object as a change, and stored its resource version instead of a hash of its content.
+Upgrading from such a release does not restart any Pods by itself: the operator keeps the value of every referenced object that has not been written since the Pods were last rolled.
+The next write to such an object restarts the Pods once, as it would have before the upgrade, and from then on only content changes do.
+
 ==== Pod template annotations
 
 To detect changes, the operator adds an annotation for every referenced ConfigMap and Secret to the Pod template of the StatefulSet.
-Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID and resource version of the referenced object.
+Its key is `configmap.restarter.stackable.tech/\{name\}` or `secret.restarter.stackable.tech/\{name\}`, its value is the UID of the referenced object, followed by a hash of its content (or by its resource version, as described above for upgrades).
 The value is `changes-ignored` instead if the object is excluded, either by the StatefulSet annotations described above or by the `restarter.stackable.tech/ignore` label described below.
 The value is also `changes-ignored` if the referenced object does not exist (yet), for example because the StatefulSet was created before a mounted Secret.
-This is intended: once the object is created, the value changes to its UID and resource version (unless it is excluded), and the Pods are restarted to pick it up.
+This is intended: once the object is created, the value changes as described above (unless it is excluded), and the Pods are restarted to pick it up.
 Kubernetes rolling-restarts the Pods whenever one of these values changes.
 These annotations are managed by the operator, there is no need to set them yourself.
 

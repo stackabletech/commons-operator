@@ -73,3 +73,35 @@ rules:
       # Required for startup condition
       - list
       - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "commons-operator.fullname" . }}-role
+  labels:
+  {{- include "commons-operator.labels" . | nindent 4 }}
+rules:
+  # Load, or create on first start, the Secret holding the key of the content digests tracked by
+  # the StatefulSet restarter.
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "commons-operator.fullname" . }}-rolebinding
+  labels:
+  {{- include "commons-operator.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "commons-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "commons-operator.fullname" . }}-role
+  apiGroup: rbac.authorization.k8s.io

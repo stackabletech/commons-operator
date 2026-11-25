@@ -11,19 +11,25 @@ use snafu::{ResultExt, Snafu};
 use stackable_operator::{
     client::Client,
     constants::RESTART_CONTROLLER_ENABLED_LABEL,
-    k8s_openapi::api::{
-        apps::v1::StatefulSet,
-        core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+    k8s_openapi::{
+        api::{
+            apps::v1::StatefulSet,
+            core::v1::{ConfigMap, EnvFromSource, EnvVar, PodSpec, Secret, Volume},
+        },
+        apimachinery::pkg::apis::meta::v1::ObjectMeta,
     },
     kube::{
         self, Resource, ResourceExt,
-        api::{PartialObjectMeta, Patch, PatchParams},
+        api::{Patch, PatchParams},
         core::{DeserializeGuard, DynamicObject, error_boundary},
         runtime::{
             Config, WatchStreamExt, applier,
             controller::{Action, ReconcileRequest, trigger_self, trigger_with},
             events::{Recorder, Reporter},
-            reflector::{self, ObjectRef, Store},
+            reflector::{
+                self, ObjectRef, Store,
+                store::{Writer, WriterDropped},
+            },
             watcher::{self, watcher},
         },
     },
@@ -33,7 +39,10 @@ use stackable_operator::{
 };
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::utils::delayed_init::{DelayedInit, InitDropped, Initializer};
+use crate::restart_controller::{
+    content_digest::{replace_content_by_digest, stored_digest},
+    digest_key::DigestKey,
+};
 
 const FULL_CONTROLLER_NAME: &str = "statefulset.restarter.commons.stackable.tech";
 
@@ -43,10 +52,28 @@ const CONFIGMAP_ANNOTATION_PREFIX: &str = "configmap.restarter.stackable.tech";
 /// Prefix of the Pod annotations tracking the referenced Secrets.
 const SECRET_ANNOTATION_PREFIX: &str = "secret.restarter.stackable.tech";
 
+/// Page size of the initial list of the watched ConfigMaps and Secrets.
+///
+/// They are watched including their content, so a page is held in memory in full until its
+/// content is replaced by digests. With kube's default of 500, a page of Secrets (up to 1 MiB
+/// each) could need hundreds of MiB, and the memory of the operator grew with the total size of
+/// all watched objects in tests. With 20 it stays bounded.
+const CONTENT_WATCH_PAGE_SIZE: u32 = 20;
+
 pub struct Ctx {
     client: Client,
-    cms: DelayedInit<Store<PartialObjectMeta<ConfigMap>>>,
-    secrets: DelayedInit<Store<PartialObjectMeta<Secret>>>,
+
+    /// Watched ConfigMaps, filled by [`start`].
+    ///
+    /// Readers must [`Store::wait_until_ready`] first, as the store stays empty until its initial
+    /// list is complete. Otherwise a reconcile in between would see every referenced object as
+    /// missing and set `changes-ignored`, rolling-restarting the StatefulSet twice on every
+    /// operator start.
+    cms: Store<ConfigMap>,
+
+    /// Watched Secrets, filled by [`start`]. As for [`Ctx::cms`], readers must
+    /// [`Store::wait_until_ready`] first.
+    secrets: Store<Secret>,
 }
 
 #[derive(Snafu, Debug, EnumDiscriminants)]
@@ -64,11 +91,11 @@ pub enum Error {
         obj_ref: Box<ObjectRef<DynamicObject>>,
     },
 
-    #[snafu(display("configmap initializer was cancelled"))]
-    ConfigMapsUninitialized { source: InitDropped },
+    #[snafu(display("configmap store was dropped before its initial list completed"))]
+    ConfigMapsUninitialized { source: WriterDropped },
 
-    #[snafu(display("secrets initializer was cancelled"))]
-    SecretsUninitialized { source: InitDropped },
+    #[snafu(display("secret store was dropped before its initial list completed"))]
+    SecretsUninitialized { source: WriterDropped },
 
     #[snafu(display("failed to build annotation key for object {object_name:?}"))]
     InvalidAnnotationKey {
@@ -93,42 +120,39 @@ impl ReconcilerError for Error {
     }
 }
 
-#[allow(clippy::type_complexity)]
-pub fn create_context(
-    client: Client,
-) -> (
-    Arc<Ctx>,
-    Initializer<Store<PartialObjectMeta<ConfigMap>>>,
-    Initializer<Store<PartialObjectMeta<Secret>>>,
-) {
-    let (cm_store_tx, cm_store_delayed) = DelayedInit::new();
-    let (secret_store_tx, secret_store_delayed) = DelayedInit::new();
+/// Returns the context, along with the writers of its ConfigMap and Secret stores, which
+/// [`start`] fills.
+pub fn create_context(client: Client) -> (Arc<Ctx>, Writer<ConfigMap>, Writer<Secret>) {
+    let cm_store = Writer::<ConfigMap>::new(());
+    let secret_store = Writer::<Secret>::new(());
     let ctx = Arc::new(Ctx {
         client,
-        cms: cm_store_delayed,
-        secrets: secret_store_delayed,
+        cms: cm_store.as_reader(),
+        secrets: secret_store.as_reader(),
     });
 
-    (ctx, cm_store_tx, secret_store_tx)
+    (ctx, cm_store, secret_store)
 }
 
+/// Starts the controller.
+///
+/// It watches the full ConfigMaps and Secrets, but replaces their content by its digest, keyed
+/// with `digest_key`, before storing them in `cm_store` and `secret_store`.
 pub async fn start<F>(
     ctx: Arc<Ctx>,
-    cm_store_tx: Initializer<Store<PartialObjectMeta<ConfigMap>>>,
-    secret_store_tx: Initializer<Store<PartialObjectMeta<Secret>>>,
+    cm_store: Writer<ConfigMap>,
+    secret_store: Writer<Secret>,
+    digest_key: DigestKey,
     watch_namespace: &WatchNamespace,
     shutdown_signal: F,
 ) where
     F: Future<Output = ()>,
 {
     let stses = watch_namespace.get_api::<DeserializeGuard<StatefulSet>>(&ctx.client);
-    let cms = watch_namespace.get_api::<PartialObjectMeta<ConfigMap>>(&ctx.client);
-    let secrets = watch_namespace.get_api::<PartialObjectMeta<Secret>>(&ctx.client);
-    let sts_store = reflector::store::Writer::<DeserializeGuard<StatefulSet>>::new(());
-    let cm_store = reflector::store::Writer::<PartialObjectMeta<ConfigMap>>::new(());
-    let secret_store = reflector::store::Writer::<PartialObjectMeta<Secret>>::new(());
-    let mut cm_store_tx = Some(cm_store_tx);
-    let mut secret_store_tx = Some(secret_store_tx);
+    let cms = watch_namespace.get_api::<ConfigMap>(&ctx.client);
+    let secrets = watch_namespace.get_api::<Secret>(&ctx.client);
+    let sts_store = Writer::<DeserializeGuard<StatefulSet>>::new(());
+    let cm_digest_key = digest_key.clone();
     let ctx2 = ctx.clone();
     let event_recorder = Arc::new(Recorder::new(
         ctx.client.as_kube_client(),
@@ -146,43 +170,31 @@ pub async fn start<F>(
         stream::select(
             stream::select(
                 trigger_all(
-                    {
-                        let cm_reader = cm_store.as_reader();
-                        reflector::reflector(
-                            cm_store,
-                            watcher(
-                                cms,
-                                watcher::Config::default()
-                                    .labels("restarter.stackable.tech/ignore != true"),
-                            ),
+                    reflector::reflector(
+                        cm_store,
+                        watcher(
+                            cms,
+                            watcher::Config::default()
+                                .labels("restarter.stackable.tech/ignore != true")
+                                .page_size(CONTENT_WATCH_PAGE_SIZE),
                         )
-                        .inspect(move |_| {
-                            if let Some(tx) = cm_store_tx.take() {
-                                tx.init(cm_reader.clone());
-                            }
-                        })
-                        .touched_objects()
-                    },
+                        .modify(move |cm| replace_content_by_digest(cm, &cm_digest_key)),
+                    )
+                    .touched_objects(),
                     sts_store.as_reader(),
                 ),
                 trigger_all(
-                    {
-                        let secret_reader = secret_store.as_reader();
-                        reflector::reflector(
-                            secret_store,
-                            watcher(
-                                secrets,
-                                watcher::Config::default()
-                                    .labels("restarter.stackable.tech/ignore != true"),
-                            ),
+                    reflector::reflector(
+                        secret_store,
+                        watcher(
+                            secrets,
+                            watcher::Config::default()
+                                .labels("restarter.stackable.tech/ignore != true")
+                                .page_size(CONTENT_WATCH_PAGE_SIZE),
                         )
-                        .inspect(move |_| {
-                            if let Some(tx) = secret_store_tx.take() {
-                                tx.init(secret_reader.clone());
-                            }
-                        })
-                        .touched_objects()
-                    },
+                        .modify(move |secret| replace_content_by_digest(secret, &digest_key)),
+                    )
+                    .touched_objects(),
                     sts_store.as_reader(),
                 ),
             ),
@@ -276,6 +288,64 @@ fn annotation_key(prefix: &str, object_name: &str) -> Result<String, Error> {
     Ok(key.to_string())
 }
 
+/// Returns `previous_value` if it is the `uid/resourceVersion` value that releases before content
+/// digests wrote for the object with the given `metadata`, i.e. the object has not been written
+/// since the Pods were last rolled with that value.
+///
+/// Keeping this value lets the operator upgrade from those releases without restarting any Pods.
+/// The Pods are restarted on the next write to the object instead, as they would have been by
+/// those releases, and from then on the annotation holds the content digest. Objects that are
+/// never written keep the value indefinitely, so this has no planned removal: removing it would
+/// cost exactly the restart it avoids.
+///
+/// A digest never matches, as it is 32 hexadecimal characters, while resourceVersions written by
+/// etcd are decimal numbers of at most 19 digits.
+fn unchanged_resource_version_value(
+    metadata: &ObjectMeta,
+    previous_value: Option<&str>,
+) -> Option<String> {
+    let value = format!(
+        "{}/{}",
+        metadata.uid.as_deref()?,
+        metadata.resource_version.as_deref()?
+    );
+    (Some(value.as_str()) == previous_value).then_some(value)
+}
+
+/// Value of the Pod template annotation tracking `object`.
+///
+/// `previous_value` is the value the Pod template annotation currently has, if any. It is kept if
+/// it is still up to date, see [`unchanged_resource_version_value`]. Otherwise the value is the
+/// uid of the object followed by the digest of its content (see
+/// [`crate::restart_controller::content_digest`]).
+///
+/// The value is `changes-ignored` if the object is `ignored` via the StatefulSet annotations, or
+/// missing from the store (`None`), i.e. it doesn't exist (yet), e.g. because the StatefulSet was
+/// created before it, or it has the label `restarter.stackable.tech/ignore=true` (filtered out by
+/// the watcher). This is intended: once the object shows up, the value changes to its digest
+/// (unless ignored via the StatefulSet annotations), which restarts the Pods so that they pick it
+/// up. Leaving out the annotation instead would not avoid any restart, but cause additional ones,
+/// e.g. when an object ignored via a StatefulSet annotation is created after the StatefulSet.
+fn tracking_value<K: Resource>(
+    object: Option<&K>,
+    ignored: bool,
+    previous_value: Option<&str>,
+) -> String {
+    if ignored {
+        return "changes-ignored".to_owned();
+    }
+    let Some(metadata) = object.map(Resource::meta) else {
+        return "changes-ignored".to_owned();
+    };
+    if let Some(value) = unchanged_resource_version_value(metadata, previous_value) {
+        return value;
+    }
+    match (metadata.uid.as_deref(), stored_digest(metadata)) {
+        (Some(uid), Some(digest)) => format!("{uid}/{digest}"),
+        _ => "changes-ignored".to_owned(),
+    }
+}
+
 pub async fn get_updated_restarter_annotations(
     sts: &StatefulSet,
     ctx: Arc<Ctx>,
@@ -283,6 +353,11 @@ pub async fn get_updated_restarter_annotations(
     let ns = sts.metadata.namespace.as_deref().expect(
         "A StatefulSet observed by a reflector (so send by Kubernetes) always has a namespace set",
     );
+    let previous_annotations = sts
+        .spec
+        .as_ref()
+        .and_then(|sts_spec| sts_spec.template.metadata.as_ref())
+        .and_then(|metadata| metadata.annotations.as_ref());
 
     let mut annotations = BTreeMap::<String, String>::new();
     let pod_specs = sts
@@ -296,12 +371,12 @@ pub async fn get_updated_restarter_annotations(
             find_pod_refs(
                 pod_spec,
                 |volume| {
-                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
+                    Some(ObjectRef::<ConfigMap>::new(
                         &volume.config_map.as_ref()?.name,
                     ))
                 },
                 |env_var| {
-                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
+                    Some(ObjectRef::<ConfigMap>::new(
                         &env_var
                             .value_from
                             .as_ref()?
@@ -311,14 +386,17 @@ pub async fn get_updated_restarter_annotations(
                     ))
                 },
                 |env_from| {
-                    Some(ObjectRef::<PartialObjectMeta<ConfigMap>>::new(
+                    Some(ObjectRef::<ConfigMap>::new(
                         &env_from.config_map_ref.as_ref()?.name,
                     ))
                 },
             )
         })
         .map(|cm_ref| cm_ref.within(ns));
-    let cms = ctx.cms.get().await.context(ConfigMapsUninitializedSnafu)?;
+    ctx.cms
+        .wait_until_ready()
+        .await
+        .context(ConfigMapsUninitializedSnafu)?;
     let ignored_cms = sts
         .metadata
         .annotations
@@ -330,29 +408,13 @@ pub async fn get_updated_restarter_annotations(
         })
         .collect::<BTreeSet<_>>();
     for cm_ref in cm_refs {
-        let cm_name = &cm_ref.name;
-        let cm = cms.get(&cm_ref);
-
-        // It is intended that "changes-ignored" is also used if the ConfigMap is not in the store,
-        // i.e. it doesn't exist (yet), e.g. because the StatefulSet was created before the
-        // ConfigMap, or it has the label `restarter.stackable.tech/ignore=true` (filtered out by the
-        // watcher). Once the ConfigMap shows up, the value changes to its uid/resourceVersion
-        // (unless ignored via the StatefulSet annotations), which restarts the Pods so that they
-        // pick it up.
-        // Leaving out the annotation instead would not avoid any restart, but cause additional
-        // ones, e.g. when an object ignored via a StatefulSet annotation is created after the
-        // StatefulSet.
-        let value = if let Some(cm) = cm
-            && let Some(uid) = &cm.metadata.uid
-            && let Some(resource_version) = &cm.metadata.resource_version
-            && !ignored_cms.contains(cm_name)
-        {
-            format!("{uid}/{resource_version}",)
-        } else {
-            "changes-ignored".to_owned()
-        };
-
-        annotations.insert(annotation_key(CONFIGMAP_ANNOTATION_PREFIX, cm_name)?, value);
+        let key = annotation_key(CONFIGMAP_ANNOTATION_PREFIX, &cm_ref.name)?;
+        let value = tracking_value(
+            ctx.cms.get(&cm_ref).as_deref(),
+            ignored_cms.contains(&cm_ref.name),
+            previous_annotations.and_then(|previous| previous.get(&key).map(String::as_str)),
+        );
+        annotations.insert(key, value);
     }
 
     let secret_refs = pod_specs
@@ -360,24 +422,27 @@ pub async fn get_updated_restarter_annotations(
             find_pod_refs(
                 pod_spec,
                 |volume| {
-                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
+                    Some(ObjectRef::<Secret>::new(
                         volume.secret.as_ref()?.secret_name.as_deref()?,
                     ))
                 },
                 |env_var| {
-                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
+                    Some(ObjectRef::<Secret>::new(
                         &env_var.value_from.as_ref()?.secret_key_ref.as_ref()?.name,
                     ))
                 },
                 |env_from| {
-                    Some(ObjectRef::<PartialObjectMeta<Secret>>::new(
+                    Some(ObjectRef::<Secret>::new(
                         &env_from.secret_ref.as_ref()?.name,
                     ))
                 },
             )
         })
         .map(|secret_ref| secret_ref.within(ns));
-    let secrets = ctx.secrets.get().await.context(SecretsUninitializedSnafu)?;
+    ctx.secrets
+        .wait_until_ready()
+        .await
+        .context(SecretsUninitializedSnafu)?;
     let ignored_secrets = sts
         .metadata
         .annotations
@@ -391,24 +456,13 @@ pub async fn get_updated_restarter_annotations(
         .map(|x| x.1)
         .collect::<BTreeSet<_>>();
     for secret_ref in secret_refs {
-        let secret_name = &secret_ref.name;
-        let secret = secrets.get(&secret_ref);
-
-        // Same as for ConfigMaps above, "changes-ignored" is intended for Secrets not in the store.
-        let value = if let Some(secret) = secret
-            && let Some(uid) = &secret.metadata.uid
-            && let Some(resource_version) = &secret.metadata.resource_version
-            && !ignored_secrets.contains(secret_name)
-        {
-            format!("{uid}/{resource_version}",)
-        } else {
-            "changes-ignored".to_owned()
-        };
-
-        annotations.insert(
-            annotation_key(SECRET_ANNOTATION_PREFIX, secret_name)?,
-            value,
+        let key = annotation_key(SECRET_ANNOTATION_PREFIX, &secret_ref.name)?;
+        let value = tracking_value(
+            ctx.secrets.get(&secret_ref).as_deref(),
+            ignored_secrets.contains(&secret_ref.name),
+            previous_annotations.and_then(|previous| previous.get(&key).map(String::as_str)),
         );
+        annotations.insert(key, value);
     }
 
     Ok(annotations)
@@ -498,5 +552,98 @@ mod tests {
             .expect("annotation key for an overly long Secret name must be shortened and valid"),
             "secret.restarter.stackable.tech/hiverest-owner-user.stackable-postgres-cluster.credent-8221aa71"
         );
+    }
+
+    #[test]
+    fn resource_version_value_is_kept_until_the_object_is_written() {
+        let uid = "f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c";
+        let metadata = ObjectMeta {
+            uid: Some(uid.to_owned()),
+            resource_version: Some("12345".to_owned()),
+            ..ObjectMeta::default()
+        };
+
+        for (previous_value, expected) in [
+            (Some(format!("{uid}/12345")), Some(format!("{uid}/12345"))),
+            (Some(format!("{uid}/12344")), None),
+            (
+                Some("0a1b2c3d-0000-0000-0000-000000000000/12345".to_owned()),
+                None,
+            ),
+            (
+                Some(format!("{uid}/0123456789abcdef0123456789abcdef")),
+                None,
+            ),
+            (Some("changes-ignored".to_owned()), None),
+            (None, None),
+        ] {
+            assert_eq!(
+                unchanged_resource_version_value(&metadata, previous_value.as_deref()),
+                expected,
+                "previous value {previous_value:?}"
+            );
+        }
+
+        assert_eq!(
+            unchanged_resource_version_value(&ObjectMeta::default(), Some(&format!("{uid}/12345"))),
+            None
+        );
+    }
+
+    #[test]
+    fn tracking_value_prefers_unchanged_value_then_digest() {
+        let uid = "f9dc0a8f-5f4b-4f52-9d0f-1a0ba1e0bd2c";
+        let digest_key = DigestKey::new([42; 32]);
+        let mut stored = ConfigMap {
+            metadata: ObjectMeta {
+                uid: Some(uid.to_owned()),
+                resource_version: Some("12345".to_owned()),
+                ..ObjectMeta::default()
+            },
+            data: Some([("foo".to_owned(), "bar".to_owned())].into()),
+            ..ConfigMap::default()
+        };
+        replace_content_by_digest(&mut stored, &digest_key);
+        let digest_value = format!(
+            "{uid}/{}",
+            stored_digest(&stored.metadata).expect("the digest should be stored")
+        );
+        let legacy_value = format!("{uid}/12345");
+
+        for (object, ignored, previous_value, expected) in [
+            (None, false, None, "changes-ignored"),
+            (
+                Some(&stored),
+                true,
+                Some(digest_value.as_str()),
+                "changes-ignored",
+            ),
+            (Some(&stored), false, None, digest_value.as_str()),
+            (
+                Some(&stored),
+                false,
+                Some("changes-ignored"),
+                digest_value.as_str(),
+            ),
+            (
+                Some(&stored),
+                false,
+                Some(&legacy_value),
+                legacy_value.as_str(),
+            ),
+            (
+                Some(&stored),
+                false,
+                Some(&format!("{uid}/12344")),
+                digest_value.as_str(),
+            ),
+            (Some(&ConfigMap::default()), false, None, "changes-ignored"),
+        ] {
+            assert_eq!(
+                tracking_value(object, ignored, previous_value),
+                expected,
+                "ignored {ignored}, previous value {previous_value:?}"
+            );
+        }
     }
 }

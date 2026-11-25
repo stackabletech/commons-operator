@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- The restarter only restarts the Pods of a StatefulSet when the content of a referenced ConfigMap
+  or Secret changes. Previously every write to such an object restarted them, including writes by
+  third parties that only touch its metadata. Upgrading does not restart any Pods by itself ([#481]).
+- Extend Helm deployed RBAC permissions to get and create secrets in the operator namespace,
+  required to store the key of the content digests ([#481]).
+
+### Fixed
+
+- The restarter no longer rolling-restarts StatefulSets twice when the operator starts. Previously
+  a StatefulSet reconciled before the initial list of ConfigMaps and Secrets was complete saw every
+  referenced object as missing ([#481]).
+
+[#481]: https://github.com/stackabletech/commons-operator/pull/481
+
 ## [26.11.0] - 2026-11-20
 
 ## [26.11.0-rc1] - 2026-11-19

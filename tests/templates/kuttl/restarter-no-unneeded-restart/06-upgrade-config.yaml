@@ -1,0 +1,10 @@
+---
+# Simulates an upgrade from a release that tracked the resourceVersion instead of the content:
+# the StatefulSet in the next step is created with the annotation value such a release wrote.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: upgrade-config
+data:
+  foo: bar

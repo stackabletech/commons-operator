@@ -1,0 +1,42 @@
+---
+# The operator keeps the annotation value as long as the ConfigMap is not written, so the upgrade
+# itself does not restart the Pods.
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      LEGACY_VALUE="$(kubectl get configmap upgrade-config --namespace "$NAMESPACE" \
+        --output 'jsonpath={.metadata.uid}/{.metadata.resourceVersion}')"
+      kubectl apply --namespace "$NAMESPACE" --filename - <<EOT
+      ---
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: upgrade
+        labels:
+          restarter.stackable.tech/enabled: "true"
+      spec:
+        selector:
+          matchLabels:
+            app: upgrade
+        serviceName: upgrade
+        replicas: 2
+        template:
+          metadata:
+            labels:
+              app: upgrade
+            annotations:
+              configmap.restarter.stackable.tech/upgrade-config: "$LEGACY_VALUE"
+          spec:
+            terminationGracePeriodSeconds: 1
+            containers:
+              - name: nginx
+                image: nginxinc/nginx-unprivileged:1.27
+                volumeMounts:
+                  - name: config
+                    mountPath: /config
+            volumes:
+              - name: config
+                configMap:
+                  name: upgrade-config
+      EOT

@@ -24,7 +24,6 @@ use stackable_operator::{
 use webhooks::create_webhook_server;
 
 mod restart_controller;
-mod utils;
 mod webhooks;
 
 mod built_info {
@@ -110,7 +109,12 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            let (ctx, cm_store_tx, secret_store_tx) = create_context(client.clone());
+            let digest_key = restart_controller::digest_key::load_or_create(
+                &client,
+                &operator_environment.operator_namespace,
+            )
+            .await?;
+            let (ctx, cm_store, secret_store) = create_context(client.clone());
 
             let mut readiness_checks = HealthCheckRegistry::new();
             let authentication_class_crd_check = readiness_checks.register(format!(
@@ -141,8 +145,9 @@ async fn main() -> anyhow::Result<()> {
 
             let sts_restart_controller = restart_controller::statefulset::start(
                 ctx,
-                cm_store_tx,
-                secret_store_tx,
+                cm_store,
+                secret_store,
+                digest_key,
                 &watch_namespace,
                 sigterm_watcher.handle(),
             )
