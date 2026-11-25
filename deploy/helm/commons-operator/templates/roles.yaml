@@ -7,22 +7,14 @@ metadata:
   {{- include "commons-operator.labels" . | nindent 4 }}
 rules:
   # Watch pods to detect expired restart annotations.
+  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
   - apiGroups:
       - ""
     resources:
       - pods
-    verbs:
-      - list
-      - watch
-  # Watch configmaps and secrets to trigger rolling restarts of referencing StatefulSets.
-  # Get them to digest their content, so that only content changes trigger rolling restarts.
-  - apiGroups:
-      - ""
-    resources:
       - configmaps
       - secrets
     verbs:
-      - get
       - list
       - watch
   # For automatic cluster domain detection.
@@ -89,13 +81,14 @@ metadata:
   labels:
   {{- include "commons-operator.labels" . | nindent 4 }}
 rules:
-  # Create the Secret holding the key of the content digests on first use.
-  # Reading it is covered by the ClusterRole above.
+  # Load, or create on first start, the Secret holding the key of the content digests tracked by
+  # the StatefulSet restarter.
   - apiGroups:
       - ""
     resources:
       - secrets
     verbs:
+      - get
       - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1

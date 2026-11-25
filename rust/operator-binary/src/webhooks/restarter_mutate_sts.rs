@@ -24,7 +24,7 @@ use stackable_operator::{
 
 use crate::{
     FIELD_MANAGER, OPERATOR_NAME,
-    restart_controller::statefulset::{Ctx, Error, get_updated_restarter_annotations},
+    restart_controller::statefulset::{Ctx, get_updated_restarter_annotations},
 };
 
 pub fn create_webhook(
@@ -95,9 +95,9 @@ fn get_sts_restarter_mutating_webhook_configuration() -> MutatingWebhookConfigur
             // > Webhooks typically operate only on the content of the AdmissionReview sent to them.
             // > Some webhooks, however, make out-of-band changes as part of processing admission requests.
             //
-            // We read in the state of the world using the ConfigMap and Secret store and by
-            // fetching the referenced objects. The only object we may create is the idempotent
-            // digest key Secret (see `DigestKeyStore`), so we consider this side-effect free.
+            // We read in the state of the world using the ConfigMap and Secret store.
+            // So, technically our outcome depends on external factors, *but* this webhook is not
+            // creating any external objects, so from our understanding it's side-effect free.
             side_effects: "None".to_owned(),
             ..Default::default()
         }]),
@@ -136,13 +136,6 @@ async fn add_sts_restarter_annotations_handler(
 
     let annotations = match get_updated_restarter_annotations(sts, ctx).await {
         Ok(annotations) => annotations,
-        Err(err @ (Error::FetchContentFailed { .. } | Error::LoadDigestKey { .. })) => {
-            tracing::warn!(
-                error = &err as &dyn std::error::Error,
-                "Admitting StatefulSet without restarter annotations, the controller adds them later"
-            );
-            return AdmissionResponse::from(&request);
-        }
         Err(err) => {
             return AdmissionResponse::invalid(format!(
                 "failed to get updated restarted annotations: {err:#}"

@@ -1,19 +1,14 @@
 //! Digests over the content of ConfigMaps and Secrets, which the StatefulSet restarter tracks to
 //! detect changes.
 //!
-//! The restarter only watches the metadata of ConfigMaps and Secrets. The content of an object is
-//! fetched on demand, only when a StatefulSet references it, and only once per resourceVersion:
-//! the [`DigestCache`] keeps the digest, never the content.
+//! The restarter watches ConfigMaps and Secrets and replaces their content by its digest before
+//! storing them (see [`replace_content_by_digest`]). It also drops all metadata it does not need,
+//! as metadata can hold the content too, e.g. the `kubectl.kubernetes.io/last-applied-configuration`
+//! annotation of objects created with `kubectl apply`. So its stores hold no content.
 //!
 //! The digests are keyed with a [`DigestKey`] and bound to the uid of their object, so that anyone
 //! who can read them in the Pod template annotations learns nothing about the content beyond
 //! whether it changed.
-
-use std::{
-    collections::HashMap,
-    future::Future,
-    sync::{Mutex, MutexGuard},
-};
 
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -22,15 +17,24 @@ use stackable_operator::{
         api::core::v1::{ConfigMap, Secret},
         apimachinery::pkg::apis::meta::v1::ObjectMeta,
     },
-    kube::{Resource, runtime::reflector::ObjectRef},
+    kube::Resource,
 };
 
 use crate::restart_controller::digest_key::DigestKey;
+
+/// Annotation holding the content digest of a ConfigMap or Secret in the restarter's stores.
+///
+/// Only set in memory by [`replace_content_by_digest`], which overwrites any value the object
+/// already has. It is never written to the API server.
+const CONTENT_DIGEST_ANNOTATION: &str = "restarter.stackable.tech/content-digest";
 
 /// An object whose content can be digested.
 pub trait ContentDigest: Resource<DynamicType = ()> {
     /// Keyed digest over the parts of the object that a Pod can read, bound to the object's `uid`.
     fn content_digest(&self, uid: &str, digest_key: &DigestKey) -> String;
+
+    /// Removes the parts of the object that [`ContentDigest::content_digest`] covers.
+    fn clear_content(&mut self);
 }
 
 impl ContentDigest for ConfigMap {
@@ -46,6 +50,11 @@ impl ContentDigest for ConfigMap {
         }
         finish_digest(mac)
     }
+
+    fn clear_content(&mut self) {
+        self.data = None;
+        self.binary_data = None;
+    }
 }
 
 impl ContentDigest for Secret {
@@ -57,6 +66,46 @@ impl ContentDigest for Secret {
         }
         finish_digest(mac)
     }
+
+    fn clear_content(&mut self) {
+        self.data = None;
+        self.string_data = None;
+    }
+}
+
+/// Replaces the content of `object` by its digest, stored in the [`CONTENT_DIGEST_ANNOTATION`], so
+/// that no content stays in memory.
+///
+/// Of the metadata, only the name, namespace, uid and resourceVersion are kept, which is all the
+/// restarter needs. All labels, managed fields and other annotations are dropped, as they can
+/// hold the content as well.
+///
+/// Without a uid, which every object from the API server has, no digest is stored.
+pub fn replace_content_by_digest<K: ContentDigest>(object: &mut K, digest_key: &DigestKey) {
+    let digest = object
+        .meta()
+        .uid
+        .as_deref()
+        .map(|uid| object.content_digest(uid, digest_key));
+    object.clear_content();
+    let metadata = std::mem::take(object.meta_mut());
+    *object.meta_mut() = ObjectMeta {
+        name: metadata.name,
+        namespace: metadata.namespace,
+        uid: metadata.uid,
+        resource_version: metadata.resource_version,
+        annotations: digest.map(|digest| [(CONTENT_DIGEST_ANNOTATION.to_owned(), digest)].into()),
+        ..ObjectMeta::default()
+    };
+}
+
+/// Returns the digest that [`replace_content_by_digest`] stored in `metadata`, if any.
+pub fn stored_digest(metadata: &ObjectMeta) -> Option<&str> {
+    metadata
+        .annotations
+        .as_ref()?
+        .get(CONTENT_DIGEST_ANNOTATION)
+        .map(String::as_str)
 }
 
 /// Returns a new MAC keyed with `digest_key` and bound to the object with the given `uid`.
@@ -86,94 +135,8 @@ fn finish_digest(mac: Hmac<Sha256>) -> String {
         .collect()
 }
 
-/// The content digest of one object at one resourceVersion.
-///
-/// Deliberately holds no content, so no Secret data stays in memory after hashing.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CachedDigest {
-    pub uid: String,
-    pub resource_version: String,
-    pub digest: String,
-}
-
-/// Content digests of the objects of kind `K` referenced by StatefulSets.
-///
-/// An entry is replaced when the uid or resourceVersion changes, and removed when a fetch finds
-/// the object gone. Entries of objects deleted without a later fetch stay until the operator
-/// restarts. They cannot be served for a recreated object, which has a new uid, and are only a
-/// few hundred bytes each, so they are not tracked any further.
-#[derive(Debug, Default)]
-pub struct DigestCache<K: ContentDigest> {
-    entries: Mutex<HashMap<ObjectRef<K>, CachedDigest>>,
-}
-
-impl<K: ContentDigest> DigestCache<K> {
-    /// Returns the digest of the object described by `metadata`, as seen by the metadata watch.
-    ///
-    /// The cached digest is used if it was computed for the same uid and resourceVersion,
-    /// otherwise the object is fetched by calling `fetch` with its name and namespace, and its
-    /// digest cached. Returns `None` if `metadata` lacks a name or namespace, or `fetch` does not
-    /// find the object.
-    ///
-    /// All calls on one cache must pass the same `digest_key`, as the cached digests are not keyed
-    /// by it.
-    pub async fn get_or_fetch<'a, E, Fut>(
-        &self,
-        metadata: &'a ObjectMeta,
-        digest_key: &DigestKey,
-        fetch: impl FnOnce(&'a str, &'a str) -> Fut,
-    ) -> Result<Option<CachedDigest>, E>
-    where
-        Fut: Future<Output = Result<Option<K>, E>>,
-    {
-        let (Some(namespace), Some(name)) = (&metadata.namespace, &metadata.name) else {
-            return Ok(None);
-        };
-        let cache_key = ObjectRef::<K>::new(name).within(namespace);
-
-        if let Some(cached) = self.lock().get(&cache_key)
-            && Some(&cached.uid) == metadata.uid.as_ref()
-            && Some(&cached.resource_version) == metadata.resource_version.as_ref()
-        {
-            return Ok(Some(cached.clone()));
-        }
-
-        tracing::debug!(
-            k8s.object.namespace = namespace,
-            k8s.object.name = name,
-            "Fetching object to digest its content"
-        );
-        let Some(object) = fetch(name, namespace).await? else {
-            self.lock().remove(&cache_key);
-            return Ok(None);
-        };
-        let (Some(uid), Some(resource_version)) = (
-            object.meta().uid.clone(),
-            object.meta().resource_version.clone(),
-        ) else {
-            return Ok(None);
-        };
-        let cached = CachedDigest {
-            digest: object.content_digest(&uid, digest_key),
-            uid,
-            resource_version,
-        };
-        self.lock().insert(cache_key, cached.clone());
-
-        Ok(Some(cached))
-    }
-
-    fn lock(&self) -> MutexGuard<'_, HashMap<ObjectRef<K>, CachedDigest>> {
-        self.entries
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::{cell::Cell, convert::Infallible};
-
     use stackable_operator::k8s_openapi::{
         ByteString, apimachinery::pkg::apis::meta::v1::ManagedFieldsEntry,
     };
@@ -192,23 +155,6 @@ mod tests {
                     .collect(),
             ),
             ..ConfigMap::default()
-        }
-    }
-
-    fn metadata(uid: &str, resource_version: &str) -> ObjectMeta {
-        ObjectMeta {
-            name: Some("my-config".to_owned()),
-            namespace: Some("my-namespace".to_owned()),
-            uid: Some(uid.to_owned()),
-            resource_version: Some(resource_version.to_owned()),
-            ..ObjectMeta::default()
-        }
-    }
-
-    fn stored(uid: &str, resource_version: &str, data: &[(&str, &str)]) -> ConfigMap {
-        ConfigMap {
-            metadata: metadata(uid, resource_version),
-            ..config_map(data)
         }
     }
 
@@ -290,39 +236,57 @@ mod tests {
         }
     }
 
-    /// Each step looks the object up by uid and resourceVersion, with the content a fetch returns
-    /// (`None` if the object is gone) and whether the cache has to fetch it.
-    #[tokio::test]
-    async fn cache_fetches_once_per_uid_and_resource_version() {
-        let cache = DigestCache::<ConfigMap>::default();
+    #[test]
+    fn content_is_replaced_by_its_digest() {
+        let annotations = [
+            (CONTENT_DIGEST_ANNOTATION.to_owned(), "spoofed".to_owned()),
+            (
+                "kubectl.kubernetes.io/last-applied-configuration".to_owned(),
+                r#"{"data":{"foo":"bar"}}"#.to_owned(),
+            ),
+        ];
+        let mut with_uid = ConfigMap {
+            metadata: ObjectMeta {
+                name: Some("config".to_owned()),
+                namespace: Some("default".to_owned()),
+                uid: Some(TEST_UID.to_owned()),
+                resource_version: Some("12345".to_owned()),
+                labels: Some([("foo".to_owned(), "bar".to_owned())].into()),
+                annotations: Some(annotations.clone().into()),
+                managed_fields: Some(vec![ManagedFieldsEntry::default()]),
+                ..ObjectMeta::default()
+            },
+            binary_data: Some([("foo".to_owned(), ByteString(b"bar".to_vec()))].into()),
+            ..config_map(&[("foo", "bar")])
+        };
+        let mut without_uid = ConfigMap {
+            metadata: ObjectMeta {
+                annotations: Some(annotations.into()),
+                ..ObjectMeta::default()
+            },
+            ..config_map(&[("foo", "bar")])
+        };
+        let expected_digest = with_uid.content_digest(TEST_UID, &TEST_KEY);
 
-        for (uid, resource_version, content, fetches) in [
-            ("uid-1", "100", Some("bar"), true),
-            ("uid-1", "100", Some("bar"), false),
-            ("uid-1", "101", Some("baz"), true),
-            ("uid-2", "101", Some("qux"), true),
-            ("uid-2", "102", None, true),
-            ("uid-2", "101", Some("qux"), true),
-        ] {
-            let fetched = Cell::new(false);
-            let object = content.map(|content| stored(uid, resource_version, &[("foo", content)]));
-            let cached = cache
-                .get_or_fetch(&metadata(uid, resource_version), &TEST_KEY, |_, _| {
-                    fetched.set(true);
-                    std::future::ready(Ok::<_, Infallible>(object.clone()))
-                })
-                .await
-                .expect("fetching should be infallible");
+        replace_content_by_digest(&mut with_uid, &TEST_KEY);
+        replace_content_by_digest(&mut without_uid, &TEST_KEY);
 
-            assert_eq!(fetched.get(), fetches);
-            assert_eq!(
-                cached,
-                object.map(|object| CachedDigest {
-                    uid: uid.to_owned(),
-                    resource_version: resource_version.to_owned(),
-                    digest: object.content_digest(uid, &TEST_KEY),
-                })
-            );
-        }
+        assert_eq!(
+            with_uid,
+            ConfigMap {
+                metadata: ObjectMeta {
+                    name: Some("config".to_owned()),
+                    namespace: Some("default".to_owned()),
+                    uid: Some(TEST_UID.to_owned()),
+                    resource_version: Some("12345".to_owned()),
+                    annotations: Some(
+                        [(CONTENT_DIGEST_ANNOTATION.to_owned(), expected_digest)].into()
+                    ),
+                    ..ObjectMeta::default()
+                },
+                ..ConfigMap::default()
+            }
+        );
+        assert_eq!(without_uid, ConfigMap::default());
     }
 }

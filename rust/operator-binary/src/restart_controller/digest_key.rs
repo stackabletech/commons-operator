@@ -6,7 +6,7 @@
 //! [`crate::restart_controller::content_digest`]), so that the operator cannot be used to verify
 //! such guesses either. The key lives in a Secret in the operator namespace, so that it survives
 //! operator restarts: a new key changes every digest and rolling-restarts every StatefulSet managed
-//! by the restarter.
+//! by the restarter. The operator loads it on startup, see [`load_or_create`].
 
 use std::fmt;
 
@@ -19,7 +19,6 @@ use stackable_operator::{
     k8s_openapi::{ByteString, api::core::v1::Secret},
     kvp::Label,
 };
-use tokio::sync::OnceCell;
 
 /// Name of the Secret holding the [`DigestKey`].
 const SECRET_NAME: &str = "commons-operator-restarter-digest-key";
@@ -93,40 +92,14 @@ impl fmt::Debug for DigestKey {
     }
 }
 
-/// Loads the [`DigestKey`] on first use, creating its Secret if it does not exist yet.
-///
-/// Loading lazily keeps the operator startup independent of the Secret: if it cannot be loaded or
-/// created, only the reconciles that need a digest fail, and they are retried.
-pub struct DigestKeyStore {
-    client: Client,
-    namespace: String,
-    key: OnceCell<DigestKey>,
-}
-
-impl DigestKeyStore {
-    pub fn new(client: Client, namespace: String) -> Self {
-        Self {
-            client,
-            namespace,
-            key: OnceCell::new(),
-        }
-    }
-
-    /// Returns the key, loading or creating its Secret in the operator namespace on first use.
-    ///
-    /// A failed attempt is not cached, the next call tries again.
-    pub async fn get(&self) -> Result<&DigestKey, Error> {
-        self.key
-            .get_or_try_init(|| async {
-                let secret = self
-                    .client
-                    .create_if_missing(&DigestKey::generate().to_secret(&self.namespace))
-                    .await
-                    .context(LoadOrCreateSecretSnafu)?;
-                DigestKey::from_secret(&secret)
-            })
-            .await
-    }
+/// Loads the [`DigestKey`] from its Secret in `namespace`, creating the Secret with a new random
+/// key if it does not exist yet.
+pub async fn load_or_create(client: &Client, namespace: &str) -> Result<DigestKey, Error> {
+    let secret = client
+        .create_if_missing(&DigestKey::generate().to_secret(namespace))
+        .await
+        .context(LoadOrCreateSecretSnafu)?;
+    DigestKey::from_secret(&secret)
 }
 
 #[cfg(test)]

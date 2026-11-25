@@ -67,10 +67,11 @@ Only a change of the content (`data` and `binaryData` of a ConfigMap, `data` of 
 Writes that leave the content as it is, for example writes by third parties that only touch the labels, annotations or managed fields of the object, do not restart the Pods.
 If you want to restart the Pods without changing any content, use `kubectl rollout restart statefulset \{name\}`.
 
-To hash the content, the operator reads a referenced object whenever its resource version changes.
+To hash the content, the operator watches ConfigMaps and Secrets including their content.
 It only keeps the hash, not the content.
+Of the metadata, it only keeps the name, namespace, UID and resource version, as other metadata can hold the content too, for example the `kubectl.kubernetes.io/last-applied-configuration` annotation of objects created with `kubectl apply`.
 The hash is keyed with a random key stored in a Secret in the operator namespace and bound to the UID of the object, so the hash in the Pod template annotations reveals nothing about the content beyond whether it equals an earlier content of the same object.
-The operator creates this key in the Secret `commons-operator-restarter-digest-key` in its own namespace when it first needs it.
+The operator creates this key in the Secret `commons-operator-restarter-digest-key` in its own namespace on its first start, and does not start if it cannot load or create it.
 Deleting that Secret, or the namespace, makes the operator create a new key on its next start, which changes every hash and therefore rolling-restarts every StatefulSet managed by the restarter once.
 
 Earlier releases counted every write to a referenced object as a change, and stored its resource version instead of a hash of its content.
